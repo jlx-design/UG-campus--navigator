@@ -302,6 +302,16 @@ export function About() {
     <div className="screen">
       <BackLink href="#/me" />
       <header className="page-head"><h1>About {APP_NAME}</h1><p className="lede">Map, walking directions, timetable, shuttles, campus guide and AI assistant for the {CAMPUS.university}, {CAMPUS.campusName} community.</p></header>
+      <section className="card maker" aria-labelledby="maker-h">
+        <div className="maker-mono" aria-hidden="true">JN</div>
+        <div style={{ minWidth: 0 }}>
+          <h3 id="maker-h">Meet the developer</h3>
+          <p className="maker-name">Joshua Likem Nyoape</p>
+          <p className="sub">Joshua is the inspiration behind the app's design, and he builds and runs it as its developer and administrator. {APP_NAME} is part of a family of campus apps he created for UG, KNUST, UHAS and UCC.</p>
+          <div className="maker-roles"><span className="pill">Design</span><span className="pill">Development</span><span className="pill">Administration</span></div>
+          <a className="btn small" href="#/report?kind=other" style={{ marginTop: 12 }}><Icon name="send" />Send feedback</a>
+        </div>
+      </section>
       <div className="card"><h3>Where the data comes from</h3><p className="sub">Places are either <b>verified</b> by the app's editors, or imported from OpenStreetMap and clearly labelled unverified. University information links to its official source. Emergency numbers show the source they were checked against. This app is not an official {CAMPUS.university} service.</p></div>
       <div className="card"><h3>Usage statistics</h3><p className="sub">To show the team how the app is used, it counts actions such as opening the app, planning a route or adding a course. Each count carries a random install ID created on this device, your device type (Android, iPhone, computer) and whether the app is installed. When you're signed in, that ID is linked to your account so active users can be counted. Search text, your location and your personal details are never sent with these counts.</p></div>
       <div className="card"><h3>Maps & directions</h3><p className="sub">Vector maps © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL). Satellite imagery © Esri. Walking routes by openrouteservice (HeiGIT). Route accessibility (stairs, ramps) is not verified.</p></div>
