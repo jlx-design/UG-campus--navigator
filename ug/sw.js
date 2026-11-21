@@ -1,7 +1,7 @@
 // UG Campus Navigator service worker.
 // Caches the static app shell, the pinned map library, and campus map tiles (for offline use).
 // API, auth, routing and AI requests always go to the network and are never cached.
-const VERSION = 'mwqdtkak';
+const VERSION = 'mwqetay8';
 const SHELL = `ugnav-shell-${VERSION}`;
 // Paths are relative to the SW's own location, so the app works at a domain root or under a sub-path (GitHub Pages).
 const BASE = new URL('./', self.location).pathname;
@@ -37,6 +37,15 @@ self.addEventListener('fetch', e => {
   // Pinned, integrity-checked library files (versioned URLs).
   if (LIB_HOSTS.includes(url.hostname) && url.pathname.includes('@')) {
     e.respondWith(caches.open(SHELL).then(async c => (await c.match(req)) || fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; })));
+  }
+  // Web fonts: font files are immutable; the CSS is refreshed in the background. Lets the app keep its type offline.
+  if (url.hostname === 'fonts.gstatic.com' || url.hostname === 'fonts.googleapis.com') {
+    e.respondWith(caches.open('ugnav-fonts-v1').then(async c => {
+      const hit = await c.match(req);
+      const net = fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => hit);
+      return url.hostname === 'fonts.gstatic.com' ? (hit || net) : (hit ? (net, hit) : net);
+    }));
+    return;
   }
   // Everything else (Data API, auth, server function, tiles): default network behaviour.
 });

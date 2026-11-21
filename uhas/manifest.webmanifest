@@ -1,0 +1,73 @@
+{
+  "name": "UHAS Navigator — University of Health and Allied Sciences",
+  "short_name": "UHAS Navigator",
+  "description": "Campus map, step-by-step walking directions, timetable, GPA, exams, shuttles, events and an AI campus guide for University of Health and Allied Sciences.",
+  "id": "./",
+  "start_url": "./#/map",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
+  "background_color": "#0f2b46",
+  "theme_color": "#0f2b46",
+  "categories": [
+    "education",
+    "navigation",
+    "travel"
+  ],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Directions",
+      "url": "./#/navigate",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "My timetable",
+      "url": "./#/schedule",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Emergency",
+      "url": "./#/emergency",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

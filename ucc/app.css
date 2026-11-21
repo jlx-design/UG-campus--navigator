@@ -624,3 +624,120 @@ body:has(.modal-back) .bottom-nav, body:has(.modal-back) .ai-fab { display: none
 .hb-track i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--accent); }
 .hbars b { font-variant-numeric: tabular-nums; text-align: right; }
 .hbars small { color: var(--text-3); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ════════════════════════════════════════════════════════════════════
+   Design system v2: "frosted campus map"
+   Type: Bricolage Grotesque (display, headings, numbers) + Schibsted Grotesk (text).
+   Surfaces: real glass over a campus-coloured backdrop with faint map contours, so the
+   blur always has something to show. Solid-surface preference and reduced transparency
+   fall back to opaque panels.
+   ════════════════════════════════════════════════════════════════════ */
+:root {
+  --font: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --display: "Bricolage Grotesque", "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --bg: #eef2f6; --bg-2: #e4e9f0;
+  --glass: rgb(255 255 255 / .62); --glass-strong: rgb(255 255 255 / .9); --glass-line: rgb(255 255 255 / .72);
+  --glass-2: rgb(255 255 255 / .55);
+  --glass-blur: blur(24px) saturate(1.8); --glass-blur-2: blur(16px) saturate(1.6);
+  --glass-hi: inset 0 1px 0 rgb(255 255 255 / .9), inset 0 0 0 1px rgb(255 255 255 / .25);
+  --tint: color-mix(in srgb, var(--navy) 60%, black);
+  --shadow-s: 0 1px 1px rgb(15 25 45 / .04), 0 6px 18px -10px color-mix(in srgb, var(--tint) 40%, transparent);
+  --shadow: 0 1px 2px rgb(15 25 45 / .06), 0 18px 40px -18px color-mix(in srgb, var(--tint) 55%, transparent);
+  --shadow-l: 0 30px 70px -24px color-mix(in srgb, var(--tint) 65%, transparent);
+  --contour: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520' viewBox='0 0 520 520' fill='none' stroke='%2314304a' stroke-opacity='.07' stroke-width='1.2'%3E%3Cpath d='M-20 120c80-40 150 30 230 0s130-90 220-50 120 20 120 20'/%3E%3Cpath d='M-20 160c90-40 160 30 240 2s120-80 210-44 130 22 130 22'/%3E%3Cpath d='M-20 200c90-36 170 28 250 4s110-70 200-38 140 24 140 24'/%3E%3Cpath d='M-20 300c70 30 140-40 230-12s120 70 200 40 130-30 130-30'/%3E%3Cpath d='M-20 340c80 30 150-34 236-8s118 64 196 36 128-26 128-26'/%3E%3Cpath d='M-20 380c86 28 160-30 244-6s114 56 190 32 126-22 126-22'/%3E%3Cpath d='M150 470c30-40 90-50 120-20s80 30 110-10'/%3E%3Cpath d='M170 500c30-34 82-42 108-16s74 26 104-8'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"] {
+  --bg: #0b111d; --bg-2: #0f1726;
+  --glass: rgb(22 30 48 / .56); --glass-strong: rgb(18 25 41 / .92); --glass-line: rgb(255 255 255 / .1);
+  --glass-2: rgb(24 33 52 / .5);
+  --glass-hi: inset 0 1px 0 rgb(255 255 255 / .08), inset 0 0 0 1px rgb(255 255 255 / .03);
+  --shadow-s: 0 1px 1px rgb(0 0 0 / .3), 0 8px 20px -12px rgb(0 0 0 / .7);
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 20px 44px -18px rgb(0 0 0 / .85);
+  --contour: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520' viewBox='0 0 520 520' fill='none' stroke='%23ffffff' stroke-opacity='.045' stroke-width='1.2'%3E%3Cpath d='M-20 120c80-40 150 30 230 0s130-90 220-50 120 20 120 20'/%3E%3Cpath d='M-20 160c90-40 160 30 240 2s120-80 210-44 130 22 130 22'/%3E%3Cpath d='M-20 200c90-36 170 28 250 4s110-70 200-38 140 24 140 24'/%3E%3Cpath d='M-20 300c70 30 140-40 230-12s120 70 200 40 130-30 130-30'/%3E%3Cpath d='M-20 340c80 30 150-34 236-8s118 64 196 36 128-26 128-26'/%3E%3Cpath d='M-20 380c86 28 160-30 244-6s114 56 190 32 126-22 126-22'/%3E%3Cpath d='M150 470c30-40 90-50 120-20s80 30 110-10'/%3E%3Cpath d='M170 500c30-34 82-42 108-16s74 26 104-8'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"][data-amoled="true"] { --glass: rgb(10 10 14 / .6); --glass-2: rgb(14 14 18 / .55); }
+
+body { font-feature-settings: "ss01", "cv11"; letter-spacing: -.003em; }
+h1, h2, h3, .screen h1, .sheet h2, .modal h2 { font-family: var(--display); font-optical-sizing: auto; }
+.screen h1 { font-size: clamp(1.9rem, 6vw, 2.35rem); font-weight: 800; letter-spacing: -.035em; line-height: 1.04; margin: 6px 0 8px; }
+h2 { letter-spacing: -.025em; }
+.card h3, .tile b, .quick b, .menu-item b, .cat-tile b, .course b { font-family: var(--display); letter-spacing: -.015em; font-weight: 700; }
+.lede { font-size: 1.02rem; line-height: 1.5; max-width: 52ch; }
+.next-code, .hud .dist, .nav-bottom .big, .stat b, .gpa-ring b, .sem-gpa, .otp { font-family: var(--display); }
+/* Section headings: sentence case, no tracked-out caps. */
+.section-title { text-transform: none; letter-spacing: -.01em; font: 700 1.06rem/1.2 var(--display); color: var(--text); margin: 28px 2px 12px; }
+
+/* Backdrop for reading screens: brand light + contours, fixed behind scrolling glass. */
+.page { background: var(--bg); isolation: isolate; }
+.page::before { position: fixed; inset: 0; height: auto; z-index: -1;
+  background:
+    var(--contour) 0 0 / 520px 520px,
+    radial-gradient(60% 45% at 0% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
+    radial-gradient(55% 40% at 100% 18%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%),
+    radial-gradient(70% 50% at 60% 100%, color-mix(in srgb, var(--navy) 20%, transparent), transparent 70%),
+    var(--bg); }
+:root[data-theme="dark"] .page::before {
+  background:
+    var(--contour) 0 0 / 520px 520px,
+    radial-gradient(60% 45% at 0% 0%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%),
+    radial-gradient(55% 40% at 100% 18%, color-mix(in srgb, var(--gold) 12%, transparent), transparent 70%),
+    radial-gradient(70% 50% at 60% 100%, color-mix(in srgb, var(--navy) 70%, transparent), transparent 70%),
+    var(--bg); }
+
+/* Glass, level 1 (floating over the map) */
+.glass { background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--glass-hi), var(--shadow); }
+/* Glass, level 2 (content surfaces on reading screens) */
+.card, .tile, .cat-tile, .t-card, .course:not(.add), .sos-card, .stat, .menu-list, .profile-card, .ai-hero, .empty, .day-tabs, .seg, .tabs .chip, .auth-card, .modal, .results, .pv-card {
+  background: var(--glass-2); -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2);
+  border: 1px solid var(--glass-line); box-shadow: var(--glass-hi), var(--shadow-s); }
+.modal { background: var(--glass); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-hi), var(--shadow-l); }
+.empty { border-style: dashed; border-color: color-mix(in srgb, var(--text-3) 35%, transparent); }
+.card { border-radius: var(--r-l); padding: 18px; }
+.menu-list { border-radius: var(--r-l); }
+.menu-item + .menu-item { border-top-color: color-mix(in srgb, var(--text) 7%, transparent); }
+.menu-item:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.day-tabs button[aria-selected="true"], .seg button[aria-pressed="true"] { background: var(--glass-strong); box-shadow: var(--glass-hi), var(--shadow-s); }
+.input, select.input, textarea.input { background: color-mix(in srgb, var(--glass-strong) 80%, transparent); border-color: color-mix(in srgb, var(--text) 14%, transparent); }
+.notice { -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2); background: color-mix(in srgb, var(--warn) 11%, var(--glass-2)); border-radius: var(--r-m); }
+.notice.info { background: color-mix(in srgb, var(--accent) 9%, var(--glass-2)); }
+.notice.error { background: color-mix(in srgb, var(--danger) 10%, var(--glass-2)); }
+
+/* Quick tiles: glass with a coloured icon chip instead of tinted blocks. */
+.quick { background: var(--glass-2); -webkit-backdrop-filter: var(--glass-blur-2); backdrop-filter: var(--glass-blur-2); border: 1px solid var(--glass-line); box-shadow: var(--glass-hi), var(--shadow-s); border-radius: var(--r-l); padding: 14px 14px 16px; gap: 3px; }
+.quick svg { width: 38px; height: 38px; padding: 9px; border-radius: 12px; margin-bottom: 10px; color: var(--q); background: color-mix(in srgb, var(--q) 15%, transparent); }
+.quick:hover { border-color: color-mix(in srgb, var(--q) 45%, var(--glass-line)); }
+.ai-hero { border-radius: var(--r-l); }
+
+/* Buttons */
+.btn { border-radius: 14px; font-weight: 650; letter-spacing: -.005em; background: color-mix(in srgb, var(--glass-strong) 85%, transparent); border-color: color-mix(in srgb, var(--text) 12%, transparent); box-shadow: var(--glass-hi); }
+.btn.primary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, white), var(--accent)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .28), 0 10px 22px -12px var(--accent); }
+.btn.primary:hover { background: var(--accent-strong); }
+.btn.ghost { box-shadow: none; background: transparent; }
+.btn.small { border-radius: 11px; }
+
+/* Bottom navigation: a floating glass dock. */
+.bottom-nav { background: var(--glass); -webkit-backdrop-filter: blur(28px) saturate(1.9); backdrop-filter: blur(28px) saturate(1.9); border-radius: 26px; box-shadow: var(--glass-hi), var(--shadow-l); }
+.bottom-nav a { font-weight: 600; font-size: .7rem; letter-spacing: 0; }
+.bottom-nav a[aria-current="page"] .nav-ic { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); box-shadow: none; transform: none; }
+.bottom-nav a[aria-current="page"] { color: var(--accent); }
+
+/* Map chrome */
+.search { border-radius: 20px; }
+.chip.glass { box-shadow: var(--glass-hi), var(--shadow-s); }
+.fab { border-radius: 16px; }
+.sheet { border-radius: 26px; box-shadow: var(--glass-hi), var(--shadow-l); }
+.hero-card, .next-card { border-radius: 26px; }
+.hero-card::after { border-color: color-mix(in srgb, var(--gold) 30%, transparent); }
+
+/* Opaque fallbacks */
+:root[data-surface="solid"] :is(.card, .tile, .cat-tile, .t-card, .course:not(.add), .sos-card, .stat, .menu-list, .profile-card, .ai-hero, .empty, .day-tabs, .seg, .tabs .chip, .auth-card, .modal, .results, .quick, .notice, .bottom-nav, .pv-card) {
+  -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); border-color: var(--line); }
+@media (prefers-reduced-transparency: reduce) {
+  :is(.glass, .card, .tile, .cat-tile, .t-card, .course, .sos-card, .stat, .menu-list, .profile-card, .ai-hero, .day-tabs, .seg, .auth-card, .modal, .results, .quick, .notice, .bottom-nav) { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :is(.card, .tile, .cat-tile, .t-card, .course, .sos-card, .stat, .menu-list, .profile-card, .ai-hero, .day-tabs, .seg, .auth-card, .modal, .results, .quick, .notice) { background: var(--surface); }
+}
+.menu-item b { flex: 1 1 auto; min-width: 7em; }
+.menu-item .sub { flex: 0 1 auto; min-width: 0; max-width: 48%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero-card::after { opacity: .55; }
