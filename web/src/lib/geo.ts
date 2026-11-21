@@ -23,15 +23,15 @@ function toSegment(p: LatLng, a: LatLng, b: LatLng) {
 
 /** Nearest point on the route polyline: distance off-route, segment index and metres travelled along it. */
 export function snapToRoute(p: LatLng, line: LatLng[]) {
-  let best = { dist: Infinity, index: 0, t: 0 };
+  let best = { dist: Infinity, index: 0, t: 0, proj: line[0] as LatLng };
   for (let i = 0; i < line.length - 1; i++) {
     const s = toSegment(p, line[i], line[i + 1]);
-    if (s.dist < best.dist) best = { dist: s.dist, index: i, t: s.t };
+    if (s.dist < best.dist) best = { dist: s.dist, index: i, t: s.t, proj: s.proj };
   }
   let along = 0;
   for (let i = 0; i < best.index; i++) along += haversine(line[i], line[i + 1]);
   if (line.length > 1) along += best.t * haversine(line[best.index], line[best.index + 1]);
-  return { offRouteM: best.dist, segmentIndex: best.index, alongM: along };
+  return { offRouteM: best.dist, segmentIndex: best.index, alongM: along, point: best.proj };
 }
 
 export function cumulative(line: LatLng[]): number[] {
@@ -58,4 +58,25 @@ export function fmtDate(iso: string | null | undefined, withTime = false): strin
   const d = new Date(iso);
   if (isNaN(d.getTime())) return 'Unknown date';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}) });
+}
+
+/** Initial compass bearing from a to b, in degrees (0 = north). */
+export function bearing(a: LatLng, b: LatLng): number {
+  const y = Math.sin(rad(b[1] - a[1])) * Math.cos(rad(b[0]));
+  const x = Math.cos(rad(a[0])) * Math.sin(rad(b[0])) - Math.sin(rad(a[0])) * Math.cos(rad(b[0])) * Math.cos(rad(b[1] - a[1]));
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Direction of travel along the route ~25 m ahead of the snapped point (smoother than one tiny segment). */
+export function routeBearingAhead(line: LatLng[], segIdx: number, from: LatLng): number {
+  let j = segIdx + 1, acc = 0, prev = from;
+  while (j < line.length - 1 && acc + haversine(prev, line[j]) < 25) { acc += haversine(prev, line[j]); prev = line[j]; j++; }
+  return bearing(from, line[Math.min(j, line.length - 1)]);
+}
+
+/** Spoken distance, rounded the way people say it. */
+export function spokenDistance(m: number): string {
+  if (m >= 1000) return `${(m / 1000).toFixed(1).replace(/\.0$/, '')} kilometres`;
+  const r = m > 200 ? Math.round(m / 50) * 50 : m > 50 ? Math.round(m / 10) * 10 : Math.max(5, Math.round(m / 5) * 5);
+  return `${r} metres`;
 }

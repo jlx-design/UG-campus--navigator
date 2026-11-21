@@ -67,6 +67,14 @@ const P: Record<string, string> = {
   turnRight: 'm15 14 5-5-5-5m5 5H10a6 6 0 0 0-6 6v5',
   straight: 'M12 20V4m-6 6 6-6 6 6',
   uturn: 'M8 20V9a5 5 0 0 1 10 0v4m-4-3 4 4 4-4',
+  slightLeft: 'M7 9V4h5M7 4l7 7a4 4 0 0 1 1 2.6V21',
+  slightRight: 'M17 9V4h-5m5 0-7 7a4 4 0 0 0-1 2.6V21',
+  volume: 'M4 9v6h4l5 4V5L8 9H4Zm12.5-.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12',
+  volumeOff: 'M4 9v6h4l5 4V5L8 9H4Zm12 1 5 5m0-5-5 5',
+  download: 'M12 3v12m-5-5 5 5 5-5M4 21h16',
+  share: 'M12 3v12M8 7l4-4 4 4M5 12v8h14v-8',
+  plusSquare: 'M4 4h16v16H4V4Zm8 4v8m-4-4h8',
+  recenter: 'M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7L12 2Z',
   arrive: 'M12 21s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12Zm-3-12 2 2 4-4',
 };
 
@@ -88,8 +96,10 @@ export const iconSvgString = (name: string) =>
 /** ORS step type → icon. https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/instruction-types */
 export function maneuverIcon(type: number): string {
   switch (type) {
-    case 0: case 2: case 4: case 12: return 'turnLeft';
-    case 1: case 3: case 5: case 13: return 'turnRight';
+    case 0: case 2: return 'turnLeft';
+    case 1: case 3: return 'turnRight';
+    case 4: case 12: return 'slightLeft';
+    case 5: case 13: return 'slightRight';
     case 9: return 'uturn';
     case 10: return 'arrive';
     default: return 'straight';

@@ -1,3 +1,4 @@
+import { InstallMenuItem } from '../components/Install';
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { db } from '../lib/api';
@@ -205,6 +206,7 @@ export function Profile() {
         <a className="menu-item" href="#/appearance"><span className="cat-ic"><Icon name="palette" /></span><b>Appearance</b><span className="sub">Theme, colour, map</span><Icon name="chevron" /></a>
         <a className="menu-item" href="#/schedule"><span className="cat-ic"><Icon name="calendar" /></span><b>My timetable</b><Icon name="chevron" /></a>
         <a className="menu-item" href="#/shuttles"><span className="cat-ic"><Icon name="bus" /></span><b>Shuttles{role === 'driver' ? ' · Driver mode' : ''}</b><Icon name="chevron" /></a>
+        <InstallMenuItem />
         <a className="menu-item danger" href="#/emergency"><span className="cat-ic"><Icon name="sos" /></span><b>Emergency contacts</b><Icon name="chevron" /></a>
       </div>
       <div className="section-title">Saved places {user ? '' : '(this device)'}</div>

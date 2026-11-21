@@ -9,6 +9,12 @@ declare const maplibregl: any; // MapLibre GL JS, loaded from CDN in index.html
 
 export interface MapApi {
   flyTo: (p: LatLng, z?: number) => void; fitRoute: () => void; home: () => void;
+  /** Google-Maps-style follow camera: centre on the user, heading-up, tilted. */
+  navCamera: (p: LatLng, bearing: number, opts?: { zoom?: number; pitch?: number }) => void;
+  /** Grey out the part of the route already walked. */
+  setRouteProgress: (done: LatLng[] | null) => void;
+  /** Called when the user drags/rotates the map themselves (to pause following). */
+  onUserMove: (cb: (() => void) | null) => void;
   toggle3d: () => boolean; resetNorth: () => void; bearing: () => number; pitch: () => number;
 }
 
@@ -66,11 +72,22 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
     });
     m.on('mouseenter', 'ug-places', () => { m.getCanvas().style.cursor = 'pointer'; });
     m.on('mouseleave', 'ug-places', () => { m.getCanvas().style.cursor = ''; });
+    const userMove = { cb: null as null | (() => void) };
+    const manual = (e: any) => { if (e?.originalEvent) userMove.cb?.(); };
+    m.on('dragstart', manual); m.on('rotatestart', manual); m.on('pitchstart', manual); m.on('zoomstart', manual);
     map.current = m;
     apiRef.current = {
+      navCamera: (p, b, o = {}) => {
+        const h = m.getContainer().clientHeight;
+        m.easeTo({ center: [p[1], p[0]], bearing: b, pitch: o.pitch ?? (prefs.buildings3d ? 60 : 45), zoom: o.zoom ?? 18.3,
+          padding: { top: Math.round(h * 0.42), bottom: 0, left: 0, right: 0 }, duration: prefs.reduceMotion ? 0 : 950, easing: (t: number) => t });
+        const me = markers.current.me; if (me) { me.setRotation(b); me.getElement().classList.add('has-heading'); }
+      },
+      setRouteProgress: done => { const src = m.getSource('ug-route-done'); src?.setData(done && done.length > 1 ? { type: 'Feature', geometry: { type: 'LineString', coordinates: done.map(([la, ln]) => [ln, la]) }, properties: {} } : { type: 'FeatureCollection', features: [] }); },
+      onUserMove: cb => { userMove.cb = cb; },
       flyTo: (p, z = 17.5) => m.flyTo({ center: [p[1], p[0]], zoom: Math.max(m.getZoom(), z), duration: prefs.reduceMotion ? 0 : 900, essential: true }),
-      fitRoute: () => { const c = routeCoords.current; if (c.length) { const b = c.reduce((bb: any, p: any) => bb.extend(p), new maplibregl.LngLatBounds(c[0], c[0])); m.fitBounds(b, { padding: { top: 150, bottom: 300, left: 40, right: 40 }, maxZoom: 18, duration: 700 }); } },
-      home: () => m.fitBounds(CAMPUS_BOUNDS, { padding: 20, duration: 800 }),
+      fitRoute: () => { m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }); const c = routeCoords.current; if (c.length) { const b = c.reduce((bb: any, p: any) => bb.extend(p), new maplibregl.LngLatBounds(c[0], c[0])); m.fitBounds(b, { padding: { top: 170, bottom: 320, left: 50, right: 50 }, maxZoom: 18, bearing: 0, pitch: 0, duration: 800 }); } },
+      home: () => m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }) && m.fitBounds(CAMPUS_BOUNDS, { padding: 20, duration: 800 }),
       toggle3d: () => { const on = m.getPitch() < 10; m.easeTo({ pitch: on ? 55 : 0, duration: 600 }); return on; },
       resetNorth: () => m.easeTo({ bearing: 0, pitch: 0, duration: 500 }),
       bearing: () => m.getBearing(), pitch: () => m.getPitch(),
@@ -95,11 +112,14 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
     const add = (id: string, src: any) => { if (!m.getSource(id)) m.addSource(id, src); };
     add('ug-places', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     add('ug-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    add('ug-route-done', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     add('ug-acc', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     const dark = styleName !== 'streets';
     if (!m.getLayer('ug-acc')) m.addLayer({ id: 'ug-acc', type: 'fill', source: 'ug-acc', paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.12 } });
     if (!m.getLayer('ug-route-casing')) m.addLayer({ id: 'ug-route-casing', type: 'line', source: 'ug-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': dark ? '#0b1220' : '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 7, 19, 16] } });
     if (!m.getLayer('ug-route')) m.addLayer({ id: 'ug-route', type: 'line', source: 'ug-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 4, 19, 10] } });
+    if (!m.getLayer('ug-route-done')) m.addLayer({ id: 'ug-route-done', type: 'line', source: 'ug-route-done', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': dark ? '#5b6475' : '#9aa3b2', 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 4, 19, 10] } });
+    if (!m.getLayer('ug-route-arrows')) m.addLayer({ id: 'ug-route-arrows', type: 'symbol', source: 'ug-route', minzoom: 16, layout: { 'symbol-placement': 'line', 'symbol-spacing': 60, 'text-field': '›', 'text-font': FONT, 'text-size': 22, 'text-keep-upright': false, 'text-allow-overlap': true, 'text-offset': [0, -0.12] }, paint: { 'text-color': '#ffffff', 'text-opacity': 0.9 } });
     if (!m.getLayer('ug-places')) m.addLayer({ id: 'ug-places', type: 'circle', source: 'ug-places', paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 16, 6, 19, 10], 'circle-color': ['get', 'color'],
       'circle-stroke-color': dark ? '#0b1220' : '#ffffff', 'circle-stroke-width': 2, 'circle-opacity': ['case', ['get', 'verified'], 1, 0.85] } });
@@ -122,6 +142,7 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
     routeCoords.current = route ? route.coordinates.map(([la, ln]) => [ln, la]) : [];
     src.setData(route ? { type: 'Feature', geometry: { type: 'LineString', coordinates: routeCoords.current }, properties: { color: accent } } : { type: 'FeatureCollection', features: [] });
     if (route && !navigating) apiRef.current?.fitRoute();
+    if (!route) apiRef.current?.setRouteProgress(null);
   }, [route, ready, prefs.accent]);
 
   // ── Selected place pin ──
@@ -147,7 +168,6 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
     me.getElement().classList.toggle('has-heading', geo.heading !== null && !Number.isNaN(geo.heading));
     if (geo.heading !== null) me.setRotation(geo.heading);
     m.getSource('ug-acc')?.setData(circle(geo.pos, Math.min(geo.accuracy, 300)));
-    if (navigating) m.easeTo({ center: [geo.pos[1], geo.pos[0]], zoom: Math.max(m.getZoom(), 17.5), duration: 600 });
   }, [geo, navigating, ready]);
 
   // ── Picked start point ──

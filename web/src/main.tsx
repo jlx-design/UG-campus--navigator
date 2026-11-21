@@ -1,4 +1,5 @@
 import React from 'react';
+import './lib/install'; // start listening for the install prompt before React mounts
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 

@@ -1,3 +1,4 @@
+import { InstallBanner } from '../components/Install';
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -76,6 +77,7 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
         <button className="fab glass" onClick={() => mapApi.current?.home()} aria-label="Back to campus"><Icon name="campus" /></button>
         <a className="fab fab-sos" href="#/emergency" aria-label="Emergency contacts"><Icon name="sos" /></a>
       </div>
+      <InstallBanner />
       <a className="ask-pill glass" href="#/assistant"><Icon name="sparkle" />Ask Campus AI</a>
       {layers && <LayersPanel mapApi={mapApi} onClose={() => setLayers(false)} />}
 

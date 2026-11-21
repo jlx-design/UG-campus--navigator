@@ -5,13 +5,30 @@ import { Icon, maneuverIcon } from '../components/Icon';
 import { SearchBox } from '../components/SearchBox';
 import { Notice, VerificationTag } from '../components/common';
 import type { MapApi } from '../components/MapView';
-import { cumulative, fmtDistance, fmtDuration, haversine, inServiceArea, snapToRoute, type LatLng } from '../lib/geo';
+import { cumulative, fmtDistance, fmtDuration, haversine, inServiceArea, routeBearingAhead, snapToRoute, spokenDistance, type LatLng } from '../lib/geo';
 
 const OFF_ROUTE_MIN_M = 25;       // never treat less than this as off-route
 const OFF_ROUTE_FIXES = 3;        // consecutive fixes required
 const REROUTE_COOLDOWN_MS = 20000;
 const ARRIVE_M = 20;
 const POOR_ACCURACY_M = 60;
+const NEAR_M = 40;                // "In 40 metres, turn left"
+const NOW_M = 12;                 // "Turn left now"
+const VOICE_KEY = 'ugnav.voice.v1';
+
+/** Spoken guidance via the browser's built-in speech engine (works offline on most phones). */
+function useVoice() {
+  const [on, setOn] = useState(() => { try { return localStorage.getItem(VOICE_KEY) !== '0'; } catch { return true; } });
+  const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const speak = useCallback((text: string, interrupt = false) => {
+    if (!supported || !on) return;
+    try { if (interrupt) speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-GB'; u.rate = 1; speechSynthesis.speak(u); } catch { /* ignore */ }
+  }, [on, supported]);
+  const toggle = () => { const v = !on; setOn(v); try { localStorage.setItem(VOICE_KEY, v ? '1' : '0'); } catch { /* ignore */ } if (!v && supported) speechSynthesis.cancel(); };
+  return { on, supported, speak, toggle };
+}
+const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const say = (instr: string) => instr.replace(/\s+/g, ' ').trim().replace(/\.$/, '');
 
 export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<MapApi | null> }) {
   const s = useStore();
@@ -25,10 +42,23 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
   const offCount = useRef(0);
   const lastReroute = useRef(0);
   const wakeLock = useRef<any>(null);
+  const [follow, setFollow] = useState(true);
+  const [askLoc, setAskLoc] = useState(false);
+  const askedLoc = useRef(false);
+  const spoken = useRef(new Set<string>());
+  const voice = useVoice();
 
   const originPos: LatLng | null = origin.kind === 'point' ? origin.pos : geo.status === 'ok' ? geo.pos : null;
 
-  useEffect(() => { if (origin.kind === 'gps' && dest) startGeo(); }, [origin.kind, dest?.id]);
+  // Ask before using the person's location (unless they've already granted it to this site).
+  useEffect(() => {
+    if (!dest || origin.kind !== 'gps' || geo.status !== 'idle' || askedLoc.current) return;
+    askedLoc.current = true;
+    const perm = (navigator as any).permissions?.query?.({ name: 'geolocation' });
+    if (perm) perm.then((r: any) => { if (r.state === 'granted') startGeo(); else setAskLoc(true); }).catch(() => setAskLoc(true));
+    else setAskLoc(true);
+  }, [dest?.id, origin.kind, geo.status]);
+  useEffect(() => { if (geo.status !== 'idle') setAskLoc(false); }, [geo.status]);
 
   const request = useCallback(async (from: LatLng, isReroute = false) => {
     if (!dest) return;
@@ -37,7 +67,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
     setError(null);
     try {
       const r = await getRoute(from, [dest.lat, dest.lng]);
-      setRoute(r); setState('idle'); offCount.current = 0; lastReroute.current = Date.now();
+      setRoute(r); setState('idle'); offCount.current = 0; lastReroute.current = isReroute ? Date.now() : 0;
     } catch (e: any) {
       const err = e as ApiError;
       if (isReroute) toast('Could not recalculate the route. Keep following the current route or try again.', 'error');
@@ -60,23 +90,68 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
   const progress = useMemo(() => {
     if (!navigating || !route || geo.status !== 'ok') return null;
     const snap = snapToRoute(geo.pos, route.coordinates);
-    const stepIdx = Math.max(0, route.steps.findIndex(st => snap.segmentIndex < st.way_points[1]));
-    const step = route.steps[stepIdx] ?? route.steps[route.steps.length - 1];
-    const next = route.steps[stepIdx + 1];
+    let stepIdx = route.steps.findIndex(st => snap.segmentIndex >= st.way_points[0] && snap.segmentIndex < st.way_points[1]);
+    if (stepIdx < 0) stepIdx = route.steps.length - 1;
+    const step = route.steps[stepIdx];
+    const nextIdx = Math.min(stepIdx + 1, route.steps.length - 1);
+    const next = route.steps[nextIdx];
+    const then = route.steps[nextIdx + 1];
     const toManeuver = Math.max(0, (cum[step?.way_points[1] ?? 0] ?? total) - snap.alongM);
     const remaining = Math.max(0, total - snap.alongM);
-    return { snap, step, next, toManeuver, remaining, remainingS: total ? route.duration_s * (remaining / total) : 0 };
+    return { snap, stepIdx, step, nextIdx, next, then, toManeuver, remaining, remainingS: total ? route.duration_s * (remaining / total) : 0 };
   }, [navigating, route, geo, cum, total]);
+
+  // Camera: follow the person, heading-up, like a car/walking sat-nav.
+  useEffect(() => {
+    if (!navigating || !route || geo.status !== 'ok' || !follow || !progress) return;
+    const onRoute = progress.snap.offRouteM < Math.max(25, geo.accuracy);
+    const pos: LatLng = onRoute ? progress.snap.point : geo.pos;
+    const usableHeading = geo.heading !== null && !Number.isNaN(geo.heading) && geo.accuracy < 30;
+    const b = onRoute || !usableHeading ? routeBearingAhead(route.coordinates, progress.snap.segmentIndex, progress.snap.point) : geo.heading!;
+    mapApi.current?.navCamera(pos, b);
+  }, [progress, follow]);
+
+  // Grey out the walked part of the line.
+  useEffect(() => {
+    if (!navigating || !route || !progress) { mapApi.current?.setRouteProgress(null); return; }
+    mapApi.current?.setRouteProgress([...route.coordinates.slice(0, progress.snap.segmentIndex + 1), progress.snap.point]);
+  }, [progress, navigating]);
+
+  // Pause following when the person pans/rotates the map themselves.
+  useEffect(() => {
+    if (!navigating) return;
+    mapApi.current?.onUserMove(() => setFollow(false));
+    return () => mapApi.current?.onUserMove(null);
+  }, [navigating]);
+
+  // Spoken + haptic turn-by-turn prompts.
+  useEffect(() => {
+    if (!progress || !dest || arrived) return;
+    const { nextIdx, next, toManeuver, step } = progress;
+    if (!next) return;
+    const instr = say(next.instruction);
+    const key = (stage: string) => `${route?.duration_s}|${nextIdx}|${stage}`;
+    const once = (stage: string, text: string, buzz = false) => {
+      if (spoken.current.has(key(stage))) return; spoken.current.add(key(stage));
+      voice.speak(text, buzz); if (buzz) navigator.vibrate?.([120, 60, 120]);
+    };
+    const stepLen = step?.distance_m ?? 0;
+    if (toManeuver <= NOW_M) { if (next.type !== 10) once('now', instr, true); }
+    else if (toManeuver <= NEAR_M && stepLen > NEAR_M + 20) once('near', `In ${spokenDistance(toManeuver)}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`);
+    else if (toManeuver > NEAR_M) once('far', toManeuver > 120 ? `Continue for ${spokenDistance(toManeuver)}` : `In ${spokenDistance(toManeuver)}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`);
+  }, [progress?.nextIdx, progress ? Math.round(progress.toManeuver / 5) : 0, arrived]);
+
+  useEffect(() => { if (arrived) setShowSteps(false); if (arrived && dest) { voice.speak(`You have arrived at ${dest.name}`, true); navigator.vibrate?.([200, 80, 200, 80, 200]); } }, [arrived]);
 
   // Off-route detection, rerouting and arrival
   useEffect(() => {
     if (!progress || geo.status !== 'ok' || !dest) return;
-    if (haversine(geo.pos, [dest.lat, dest.lng]) <= Math.max(ARRIVE_M, Math.min(geo.accuracy, 40)) || progress.remaining < 10) { setArrived(true); return; }
+    if (haversine(geo.pos, [dest.lat, dest.lng]) <= Math.max(ARRIVE_M, Math.min(geo.accuracy, 40)) || (progress.remaining < 10 && progress.snap.offRouteM < 30)) { setArrived(true); return; }
     if (geo.accuracy > POOR_ACCURACY_M) return; // too imprecise to judge
     const threshold = Math.max(OFF_ROUTE_MIN_M, geo.accuracy * 1.5);
     if (progress.snap.offRouteM > threshold) offCount.current++; else offCount.current = 0;
     if (offCount.current >= OFF_ROUTE_FIXES && Date.now() - lastReroute.current > REROUTE_COOLDOWN_MS && !rerouting) {
-      toast('Off route — recalculating…'); request(geo.pos, true);
+      toast('Off route — recalculating…'); voice.speak('Rerouting', true); request(geo.pos, true);
     }
   }, [progress]);
 
@@ -91,48 +166,78 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
   }, [navigating]);
 
   const start = () => {
-    setOrigin({ kind: 'gps' }); startGeo(); setArrived(false); setNavigating(true); offCount.current = 0;
+    setOrigin({ kind: 'gps' }); startGeo(); setArrived(false); setNavigating(true); offCount.current = 0; setFollow(true); spoken.current.clear();
+    // Speaking inside the tap also unlocks speech on iOS for the rest of the trip.
+    if (route && dest) voice.speak(`Starting route to ${dest.name}. ${fmtDuration(route.duration_s).replace('min', 'minutes')} walk. ${route.steps[0] ? say(route.steps[0].instruction) : ''}`);
+    if (geo.status === 'ok' && route) mapApi.current?.navCamera(geo.pos, routeBearingAhead(route.coordinates, snapToRoute(geo.pos, route.coordinates).segmentIndex, geo.pos));
     if (geo.status === 'ok' && route) {
       const off = snapToRoute(geo.pos, route.coordinates).offRouteM;
       if (off > 60) request(geo.pos, true); // route was planned from elsewhere
     }
   };
-  const stop = () => { setNavigating(false); setArrived(false); mapApi.current?.fitRoute(); };
+  const stop = () => { setNavigating(false); setArrived(false); setShowSteps(false); if ('speechSynthesis' in window) speechSynthesis.cancel(); mapApi.current?.setRouteProgress(null); mapApi.current?.fitRoute(); };
   const clearAll = () => { setNavigating(false); setRoute(null); setDestId(null); setState('idle'); setError(null); lastKey.current = ''; setOrigin({ kind: 'gps' }); };
 
   // ── Active navigation ──
   if (navigating && route && dest) {
     const stale = geo.status === 'ok' && Date.now() - geo.at > 20000;
+    const weak = geo.status === 'ok' && geo.accuracy > POOR_ACCURACY_M;
+    const p = progress;
+    const remainingS = p ? p.remainingS : route.duration_s;
     return (
       <>
-        <div className="hud" role="status" aria-live="polite">
-          {arrived ? (
-            <div className="maneuver"><Icon name="arrive" /><div><div className="dist">You’ve arrived</div><div className="instr">{dest.name}</div></div></div>
-          ) : progress ? (
-            <div className="maneuver">
-              <Icon name={maneuverIcon(progress.next?.type ?? progress.step?.type ?? 6)} />
-              <div style={{ minWidth: 0 }}>
-                <div className="dist">{fmtDistance(progress.toManeuver)}</div>
-                <div className="instr">{progress.next?.instruction || progress.step?.instruction || 'Continue'}</div>
+        <div className="nav-top">
+          <div className={`hud ${arrived ? 'arrived' : ''}`} role="status" aria-live="polite">
+            {arrived ? (
+              <div className="maneuver"><span className="m-ic"><Icon name="arrive" /></span><div><div className="dist">You’ve arrived</div><div className="instr">{dest.name}</div></div></div>
+            ) : p && p.next ? (
+              <div className="maneuver">
+                <span className="m-ic"><Icon name={maneuverIcon(p.next.type)} /></span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="dist">{fmtDistance(p.toManeuver)}</div>
+                  <div className="instr">{p.next.instruction}</div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="maneuver"><span className="spinner" /><div className="instr">{geo.status === 'denied' ? 'Location permission is blocked — live guidance needs your location.' : geo.status === 'unavailable' ? geo.message : 'Waiting for your GPS position…'}</div></div>
+            ) : (
+              <div className="maneuver"><span className="m-ic"><span className="spinner" /></span><div className="instr">{geo.status === 'denied' ? 'Location is blocked — allow location for this site to get live directions.' : geo.status === 'unavailable' ? geo.message : 'Finding your position…'}</div></div>
+            )}
+          </div>
+          {!arrived && p?.then && p.next && p.next.distance_m < 150 && (
+            <div className="hud-then"><span>Then</span><Icon name={maneuverIcon(p.then.type)} /></div>
           )}
-          {(rerouting || stale || (geo.status === 'ok' && geo.accuracy > POOR_ACCURACY_M)) && (
-            <div className="hud-status">
-              {rerouting ? <><span className="spinner" />Recalculating route…</> : stale ? <><Icon name="alert" style={{ width: 16 }} />GPS signal lost — showing last known position</> : <><Icon name="alert" style={{ width: 16 }} />Weak GPS (±{Math.round((geo as any).accuracy)} m) — guidance may lag</>}
+          {(rerouting || stale || weak) && (
+            <div className="hud-status glass">
+              {rerouting ? <><span className="spinner" />Rerouting…</> : stale ? <><Icon name="alert" />GPS signal lost — showing last known position</> : <><Icon name="alert" />Weak GPS (±{Math.round((geo as any).accuracy)} m) — directions may lag</>}
             </div>
           )}
         </div>
+
+        {!follow && !arrived && (
+          <button className="recenter glass" onClick={() => setFollow(true)}><Icon name="recenter" />Re-centre</button>
+        )}
+
+        {showSteps && (
+          <section className="sheet glass nav-steps" aria-label="All steps">
+            <div className="row"><h2 style={{ flex: 1 }}>Steps</h2><button className="icon-btn" onClick={() => setShowSteps(false)} aria-label="Close"><Icon name="close" /></button></div>
+            <ol className="steps">
+              {route.steps.map((st, i) => (
+                <li key={i} className={p && i < p.nextIdx ? 'done' : p && i === p.nextIdx ? 'current' : ''}><Icon name={maneuverIcon(st.type)} /><span>{st.instruction}</span><span className="d">{st.distance_m > 0 ? fmtDistance(st.distance_m) : ''}</span></li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         <div className="nav-bottom glass">
-          <div>
-            <div className="big">{progress ? fmtDuration(progress.remainingS) : fmtDuration(route.duration_s)}</div>
-            <div className="sub">{progress ? fmtDistance(progress.remaining) : fmtDistance(route.distance_m)} · to {dest.name}</div>
+          <button className="round-btn danger" onClick={stop} aria-label={arrived ? 'Finish' : 'Exit navigation'}><Icon name={arrived ? 'check' : 'close'} /></button>
+          <div className="eta">
+            {arrived ? <><div className="big">Arrived</div><div className="sub">{dest.name}</div></> : <>
+              <div className="big">{fmtDuration(remainingS)}</div>
+              <div className="sub">{fmtDistance(p ? p.remaining : route.distance_m)} · {clock(Date.now() + remainingS * 1000)}</div>
+            </>}
           </div>
-          <span className="spacer" />
-          <button className="btn small" onClick={() => mapApi.current?.fitRoute()} aria-label="Route overview"><Icon name="map" /></button>
-          <button className="btn small danger" onClick={stop}>{arrived ? 'Done' : 'Exit'}</button>
+          {voice.supported && <button className="round-btn" onClick={voice.toggle} aria-pressed={voice.on} aria-label={voice.on ? 'Mute voice guidance' : 'Turn on voice guidance'}><Icon name={voice.on ? 'volume' : 'volumeOff'} /></button>}
+          <button className="round-btn" onClick={() => setShowSteps(v => !v)} aria-pressed={showSteps} aria-label="All steps"><Icon name="list" /></button>
+          <button className="round-btn" onClick={() => { setFollow(false); mapApi.current?.fitRoute(); }} aria-label="Route overview"><Icon name="map" /></button>
         </div>
       </>
     );
@@ -156,7 +261,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
         ) : (
           <div className="glass" style={{ borderRadius: 16, padding: '10px 12px' }}>
             <div className="row"><span className="sub" style={{ width: 44 }}>From</span>
-              <b style={{ flex: 1, minWidth: 0 }}>{origin.kind === 'gps' ? (geo.status === 'ok' ? 'Your location' : geo.status === 'requesting' ? 'Finding your location…' : 'Your location (unavailable)') : 'Point on map'}</b>
+              <b style={{ flex: 1, minWidth: 0 }}>{origin.kind === 'gps' ? (geo.status === 'ok' ? 'Your location' : geo.status === 'requesting' ? 'Finding your location…' : geo.status === 'idle' ? <button className="link-btn" onClick={() => setAskLoc(true)}>Use my location</button> : 'Your location (unavailable)') : 'Point on map'}</b>
               <button className="btn small" onClick={() => setPickingOrigin(!pickingOrigin)} aria-pressed={pickingOrigin}>{pickingOrigin ? 'Tap the map…' : 'Pick on map'}</button>
               {origin.kind === 'point' && <button className="btn small ghost" onClick={() => { setOrigin({ kind: 'gps' }); lastKey.current = ''; }}>Use GPS</button>}
             </div>
@@ -170,6 +275,18 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
         {dest && origin.kind === 'gps' && geo.status === 'unavailable' && <Notice>{geo.message} You can tap “Pick on map” instead.</Notice>}
         {dest && dest.verification !== 'verified' && <Notice kind="info">This destination’s position comes from {dest.source_label} and is not yet verified by the app’s editors.</Notice>}
       </div>
+
+      {askLoc && dest && (
+        <div className="modal-back" onClick={() => setAskLoc(false)}>
+          <div className="modal loc-ask" role="dialog" aria-modal="true" aria-labelledby="loc-ask-t" onClick={e => e.stopPropagation()}>
+            <div className="loc-ask-ic"><Icon name="locate" /></div>
+            <h2 id="loc-ask-t">Use your current location?</h2>
+            <p>To guide you step by step to <b>{dest.name}</b>, UG Navigator needs your location. It stays on your phone and is only used while you get directions.</p>
+            <button className="btn primary block" onClick={() => { setAskLoc(false); startGeo(); }}><Icon name="locate" />Use my location</button>
+            <button className="btn block" style={{ marginTop: 8 }} onClick={() => { setAskLoc(false); setPickingOrigin(true); toast('Tap the map where you are starting from'); }}>Choose a starting point on the map</button>
+          </div>
+        </div>
+      )}
 
       {!dest && (
         <section className="sheet glass">
@@ -203,7 +320,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
                 <VerificationTag v={dest.verification} />
               </div>
               <div className="row wrap" style={{ marginTop: 12 }}>
-                <button className="btn primary" onClick={start}><Icon name="navigate" />Start</button>
+                <button className="btn primary start-btn" onClick={start}><Icon name="navigate" />Start</button>
                 <button className="btn" onClick={() => setShowSteps(!showSteps)} aria-expanded={showSteps}><Icon name="list" />{showSteps ? 'Hide steps' : `${route.steps.length} steps`}</button>
               </div>
               {showSteps && (
