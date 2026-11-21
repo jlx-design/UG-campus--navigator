@@ -40,7 +40,7 @@ export function Welcome() {
 
   return (
     <div className="screen welcome">
-      <div className="welcome-brand"><img className="welcome-mark" src="./icons/logo.svg" alt="" width="46" height="46" /><div><b>{APP_NAME}</b><span>{CAMPUS.university}</span></div></div>
+      <div className="welcome-brand"><span className="welcome-mark"><Icon name="pin" /></span><div><b>{APP_NAME}</b><span>{CAMPUS.university}</span></div></div>
       <div className="card campus-confirm">
         <Icon name="campus" />
         <div style={{ flex: 1, minWidth: 0 }}><div className="sub">Your campus</div><b>{CAMPUS.university}, {CAMPUS.campusName}</b></div>

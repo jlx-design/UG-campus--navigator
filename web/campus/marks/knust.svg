@@ -1,6 +1,0 @@
-<!-- KNUST, Kumasi "Garden City": a leaf whose veins end in circuit nodes (science and technology). -->
-<path d="M256 72 C 382 130, 420 270, 256 440 C 92 270, 130 130, 256 72 Z" fill="{FG}"/>
-<path d="M256 412 V 150" fill="none" stroke="{BG}" stroke-width="16" stroke-linecap="round"/>
-<path d="M256 330 L 190 276 V 236 M256 330 L 322 276 V 236 M256 250 L 206 206 M256 250 L 306 206" fill="none" stroke="{BG}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="190" cy="230" r="15" fill="{BG}"/><circle cx="322" cy="230" r="15" fill="{BG}"/><circle cx="202" cy="202" r="12" fill="{BG}"/><circle cx="310" cy="202" r="12" fill="{BG}"/>
-<circle cx="256" cy="138" r="22" fill="{DOT}" stroke="{BG}" stroke-width="10"/>

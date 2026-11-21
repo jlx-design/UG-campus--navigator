@@ -6,7 +6,7 @@ import { join } from 'node:path';
 const root = new URL('.', import.meta.url).pathname;
 const out = process.argv[2] || join(root, 'site');
 const order = ['ug', 'knust', 'uhas', 'ucc'];
-const ids = readdirSync(join(root, 'campus')).filter(f => f.endsWith('.json')).map(f => f.replace(/\.json$/, '')).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+const ids = readdirSync(join(root, 'campus')).map(f => f.replace(/\.json$/, '')).sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
 rmSync(out, { recursive: true, force: true }); mkdirSync(out, { recursive: true });
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const items = []; const campuses = [];
@@ -15,7 +15,7 @@ for (const id of ids) {
   cpSync(join(root, 'dist'), join(out, id), { recursive: true });
   const c = JSON.parse(readFileSync(join(root, 'campus', `${id}.json`), 'utf8'));
   campuses.push(c);
-  items.push(`<li><a class="campus" data-id="${esc(id)}" href="./${esc(id)}/" style="--c:${esc(c.brand.accent)}"><img class="mono" src="./${esc(id)}/icons/logo.svg" alt="" width="44" height="44"><span><b>${esc(c.short)}</b><span class="name">${esc(c.university)}, ${esc(c.campusName)}</span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></a></li>`);
+  items.push(`<li><a class="campus" data-id="${esc(id)}" href="./${esc(id)}/" style="--c:${esc(c.brand.accent)}"><span class="mono" aria-hidden="true" style="font-size:${c.short.length > 4 ? .62 : c.short.length > 3 ? .7 : .82}rem">${esc(c.short.slice(0, 5))}</span><span><b>${esc(c.short)}</b><span class="name">${esc(c.university)}, ${esc(c.campusName)}</span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></a></li>`);
   console.log('built', id);
 }
 
