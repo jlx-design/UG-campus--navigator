@@ -38,10 +38,10 @@ Object.assign(mf, { name: `${campus.appName} — ${campus.university}`, short_na
 writeFileSync(join(dist, 'manifest.webmanifest'), JSON.stringify(mf, null, 2));
 
 const sharp = require('sharp');
-// Icons: each campus has its own original mark in campus/marks/<id>.svg (512×512, tokens {BG} {FG} {DOT}).
+// Icons: a campus logo goes in campus/marks/<id>.svg (512×512, tokens {BG} {FG} {DOT}); until then a plain pin placeholder is used.
 // pad=true makes the maskable/Apple version: square, with the mark shrunk into the safe zone.
 const markPath = join(root, `campus/marks/${campus.id}.svg`);
-const markBody = (existsSync(markPath) ? readFileSync(markPath, 'utf8') : '<circle cx="256" cy="256" r="90" fill="{FG}"/><circle cx="256" cy="256" r="34" fill="{DOT}"/>')
+const markBody = (existsSync(markPath) ? readFileSync(markPath, 'utf8') : '<g transform="translate(256 262) scale(.92)"><path d="M0-190c-80 0-140 60-140 138C-140 50 0 170 0 170S140 50 140-52c0-78-60-138-140-138Z" fill="{FG}"/><circle cx="0" cy="-52" r="58" fill="{BG}"/><path d="M0-98 18-52 0-6-18-52Z" fill="{DOT}"/></g>')
   .replace(/<!--[\s\S]*?-->/g, '').replaceAll('{BG}', campus.brand.navy).replaceAll('{FG}', campus.brand.gold).replaceAll('{DOT}', '#ffffff');
 const logoSvg = (pad, full = false) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><clipPath id="t"><rect width="512" height="512" rx="${pad ? 0 : 112}"/></clipPath></defs>
   <g clip-path="url(#t)"><rect width="512" height="512" fill="${campus.brand.navy}"/><g transform="${pad && !full ? 'translate(56 56) scale(.78125)' : ''}">${markBody}</g></g></svg>`;
