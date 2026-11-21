@@ -1,1 +1,0 @@
-import{a,b,c,d,e,f}from"./chunk-U6RKGCSV.js";import"./chunk-MP4PERIE.js";import"./chunk-FG7T7IVO.js";export{a as ANN_CATEGORIES,e as UpdateDetail,d as UpdatesList,f as UpdatesRoute,b as useAnnouncements,c as useUnread};
