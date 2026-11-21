@@ -741,5 +741,3 @@ h2 { letter-spacing: -.025em; }
 .menu-item b { flex: 1 1 auto; min-width: 7em; }
 .menu-item .sub { flex: 0 1 auto; min-width: 0; max-width: 48%; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero-card::after { opacity: .55; }
-img.logo, img.welcome-mark { display: block; background: none; padding: 0; border-radius: 13px; box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--navy) 70%, transparent); }
-img.welcome-mark { border-radius: 14px; }
