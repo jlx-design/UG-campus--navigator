@@ -1,1 +1,3 @@
 src/campus.gen.ts
+web/dist/
+web/src/campus.gen.ts
