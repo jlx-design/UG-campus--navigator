@@ -2,26 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { db } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
-import { BackLink, Empty, Loading, Notice } from '../components/common';
+import { Empty, Loading, Notice } from '../components/common';
+import { ScheduleTabs } from '../components/ScheduleTabs';
+import { CAMPUS } from '../config';
 
-// University of Ghana undergraduate grading (4.0 scale).
-// Source: UG Academic Quality Assurance Unit, "Definition of grades and grade points" — linked in the UI.
-export const GRADES: { g: Grade; min: number; max: number; gp: number; label: string }[] = [
-  { g: 'A', min: 80, max: 100, gp: 4.0, label: 'Outstanding' },
-  { g: 'B+', min: 75, max: 79, gp: 3.5, label: 'Very good' },
-  { g: 'B', min: 70, max: 74, gp: 3.0, label: 'Good' },
-  { g: 'C+', min: 65, max: 69, gp: 2.5, label: 'Fairly good' },
-  { g: 'C', min: 60, max: 64, gp: 2.0, label: 'Average' },
-  { g: 'D+', min: 55, max: 59, gp: 1.5, label: 'Below average' },
-  { g: 'D', min: 50, max: 54, gp: 1.0, label: 'Marginal pass' },
-  { g: 'E', min: 45, max: 49, gp: 0.5, label: 'Unsatisfactory' },
-  { g: 'F', min: 0, max: 44, gp: 0.0, label: 'Fail' },
-];
-type Grade = 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'E' | 'F';
-const GP = Object.fromEntries(GRADES.map(x => [x.g, x.gp])) as Record<Grade, number>;
-const CLASSES: [number, string, string][] = [[3.6, 'First Class', '#0f9d58'], [3.0, 'Second Class (Upper)', '#1a73e8'], [2.0, 'Second Class (Lower)', '#c8961e'], [1.5, 'Third Class', '#ea580c'], [1.0, 'Pass', '#64748b'], [0, 'Fail', '#dc2626']];
+// Grading scale comes from the campus config (campus/<id>.json), with its source.
+type Grade = string;
+export const GRADES = CAMPUS.grading.grades as unknown as { g: Grade; min: number; max: number; gp: number; label: string }[];
+const GP: Record<string, number> = Object.fromEntries(GRADES.map(x => [x.g, x.gp]));
+const CLASS_COLORS = ['#0f9d58', '#1a73e8', '#c8961e', '#ea580c', '#64748b', '#dc2626', '#dc2626'];
+const CLASSES: [number, string, string][] = CAMPUS.grading.classes.map((c, i) => [c.min, c.name, CLASS_COLORS[i] || '#64748b']);
 const classOf = (g: number) => CLASSES.find(([min]) => g >= min)!;
-const SOURCE_URL = 'https://www.ug.edu.gh/aqau/sites/aqau/files/documents/DEFINITION%20OF%20GRADES%20AND%20GRADE%20POINTS-UG.pdf';
+const SOURCE_URL = CAMPUS.grading.sourceUrl;
+const MAXP = CAMPUS.grading.maxPoint;
 const LEVELS = ['100', '200', '300', '400', '500', '600', 'other'];
 const LOCAL_KEY = 'ugnav.gpa.v1';
 
@@ -72,7 +65,7 @@ export function Gpa() {
   const { rows, add, update, remove, user, localCount, importLocal } = useRecords();
   const { toast } = useStore();
   const [adding, setAdding] = useState<{ level: string; semester: number } | null>(null);
-  const [draft, setDraft] = useState({ course_code: '', course_title: '', credits: '3', grade: 'A' as Grade });
+  const [draft, setDraft] = useState({ course_code: '', course_title: '', credits: '3', grade: GRADES[0].g as Grade });
   const [target, setTarget] = useState('3.60'); const [nextCredits, setNextCredits] = useState('18');
   const [showScale, setShowScale] = useState(false);
 
@@ -88,7 +81,7 @@ export function Gpa() {
   const t = Number(target), n = Number(nextCredits);
   const needed = n > 0 && Number.isFinite(t) ? (t * (all.credits + n) - all.points) / n : NaN;
 
-  const startAdd = (level: string, semester: number) => { setAdding({ level, semester }); setDraft({ course_code: '', course_title: '', credits: '3', grade: 'A' }); };
+  const startAdd = (level: string, semester: number) => { setAdding({ level, semester }); setDraft({ course_code: '', course_title: '', credits: '3', grade: GRADES[0].g }); };
   const submit = async () => {
     const code = draft.course_code.trim().toUpperCase(); const cr = Number(draft.credits);
     if (!code) return toast('Enter the course code', 'error');
@@ -104,11 +97,11 @@ export function Gpa() {
 
   return (
     <div className="screen">
-      <BackLink href="#/schedule" label="Schedule" />
-      <header className="page-head"><h1>GPA calculator</h1><p className="lede">Track every semester and see your CGPA and class of degree, using the University of Ghana 4.0 scale.</p></header>
+      <header className="page-head"><h1>GPA calculator</h1><p className="lede">Track every semester and see your CGPA and class of degree, using the {CAMPUS.university} {MAXP}.0 scale.</p></header>
+      <ScheduleTabs active="gpa" />
 
       <div className="gpa-hero" style={{ ['--c' as any]: cls?.[2] || 'var(--accent)' }}>
-        <div className="gpa-ring" style={{ ['--p' as any]: Number.isFinite(all.gpa) ? all.gpa / 4 : 0 }}>
+        <div className="gpa-ring" style={{ ['--p' as any]: Number.isFinite(all.gpa) ? all.gpa / MAXP : 0 }}>
           <div><b>{fmt(all.gpa)}</b><span>CGPA</span></div>
         </div>
         <div className="gpa-meta">
@@ -133,7 +126,7 @@ export function Gpa() {
                 <li key={r.id}>
                   <div style={{ flex: 1, minWidth: 0 }}><b>{r.course_code}</b>{r.course_title && <div className="sub ellipsis">{r.course_title}</div>}</div>
                   <span className="sub">{Number(r.credits)} cr</span>
-                  <select className={`grade-sel g-${r.grade.replace('+', 'p')}`} value={r.grade} aria-label={`Grade for ${r.course_code}`} onChange={e => update(r.id, { grade: e.target.value as Grade }).catch(err => toast(err.message, 'error'))}>
+                  <select className={`grade-sel g-${r.grade.replace('+', 'p').replace('-', 'm')}`} value={r.grade} aria-label={`Grade for ${r.course_code}`} onChange={e => update(r.id, { grade: e.target.value as Grade }).catch(err => toast(err.message, 'error'))}>
                     {GRADES.map(x => <option key={x.g} value={x.g}>{x.g}</option>)}
                   </select>
                   <button className="icon-btn sm" aria-label={`Remove ${r.course_code}`} onClick={() => remove(r.id).catch(err => toast(err.message, 'error'))}><Icon name="trash" /></button>
@@ -160,7 +153,7 @@ export function Gpa() {
             </div>
             <div className="field"><label>Course title (optional)</label><input className="input" value={draft.course_title} onChange={e => setDraft({ ...draft, course_title: e.target.value })} /></div>
             <div className="field"><label>Grade</label>
-              <div className="grade-grid">{GRADES.map(x => <button key={x.g} type="button" className={`g-${x.g.replace('+', 'p')}`} aria-pressed={draft.grade === x.g} onClick={() => setDraft({ ...draft, grade: x.g })}><b>{x.g}</b><span>{x.min}–{x.max}</span></button>)}</div>
+              <div className="grade-grid">{GRADES.map(x => <button key={x.g} type="button" className={`g-${x.g.replace('+', 'p').replace('-', 'm')}`} aria-pressed={draft.grade === x.g} onClick={() => setDraft({ ...draft, grade: x.g })}><b>{x.g}</b><span>{x.min}–{x.max}</span></button>)}</div>
             </div>
             <div className="row"><button className="btn primary" style={{ flex: 1 }} onClick={submit}>Add</button><button className="btn" onClick={() => setAdding(null)}>Done</button></div>
           </div>
@@ -170,23 +163,23 @@ export function Gpa() {
       <div className="section-title">What do I need?</div>
       <div className="card">
         <div className="row wrap">
-          <div className="field"><label>Target CGPA</label><input className="input" type="number" inputMode="decimal" min={0} max={4} step={0.01} value={target} onChange={e => setTarget(e.target.value)} /></div>
+          <div className="field"><label>Target CGPA</label><input className="input" type="number" inputMode="decimal" min={0} max={MAXP} step={0.01} value={target} onChange={e => setTarget(e.target.value)} /></div>
           <div className="field"><label>Credits still to take</label><input className="input" type="number" inputMode="numeric" min={1} max={200} value={nextCredits} onChange={e => setNextCredits(e.target.value)} /></div>
         </div>
         <div className="row wrap" style={{ gap: 6, marginTop: -4, marginBottom: 10 }}>{CLASSES.slice(0, 4).map(([min, name]) => <button key={name} className="chip" style={{ height: 30, border: '1px solid var(--line)' }} aria-pressed={Number(target) === min} onClick={() => setTarget(min.toFixed(2))}>{name.replace('Second Class', '2nd')}</button>)}</div>
         {!Number.isFinite(needed) ? <p className="sub">Enter a target and the credits you still have to take.</p>
-          : needed > 4 ? <p className="whatif bad">To reach <b>{Number(target).toFixed(2)}</b> you'd need more than a 4.00 average over the next {n} credits — not possible in that many credits.</p>
+          : needed > MAXP ? <p className="whatif bad">To reach <b>{Number(target).toFixed(2)}</b> you'd need more than a {MAXP.toFixed(2)} average over the next {n} credits — not possible in that many credits.</p>
           : needed <= 0 ? <p className="whatif good">You're already above <b>{Number(target).toFixed(2)}</b>. Even a 0.00 average over the next {n} credits keeps you there.</p>
           : <p className="whatif">You need an average of <b>{needed.toFixed(2)}</b> (roughly <b>{([...GRADES].reverse().find(x => x.gp >= needed - 1e-9) || GRADES[0]).g}</b> or better in each course) over your next {n} credits to finish on <b>{Number(target).toFixed(2)}</b>.</p>}
       </div>
 
-      <button className="link-btn" style={{ marginTop: 16 }} onClick={() => setShowScale(v => !v)}>{showScale ? 'Hide' : 'Show'} the UG grading scale</button>
+      <button className="link-btn" style={{ marginTop: 16 }} onClick={() => setShowScale(v => !v)}>{showScale ? 'Hide' : 'Show'} the grading scale</button>
       {showScale && (
         <div className="card" style={{ marginTop: 8 }}>
           <table className="table"><thead><tr><th>Grade</th><th>Marks</th><th>Points</th><th>Meaning</th></tr></thead>
             <tbody>{GRADES.map(x => <tr key={x.g}><td><b>{x.g}</b></td><td>{x.min}–{x.max}</td><td>{x.gp.toFixed(1)}</td><td>{x.label}</td></tr>)}</tbody></table>
-          <p className="sub" style={{ marginTop: 10 }}>Class of degree (final GPA): First Class 3.60–4.00 · Second Upper 3.00–3.59 · Second Lower 2.00–2.99 · Third 1.50–1.99 · Pass 1.00–1.49.</p>
-          <p className="hint">GPA = Σ(credits × grade points) ÷ Σ credits. Grade points from the <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">UG Academic Quality Assurance Unit</a>; class boundaries as widely published for UG. Your official result is always the one on the UG student portal — check your programme's handbook for rules on resits and courses that don't count.</p>
+          <p className="sub" style={{ marginTop: 10 }}>Class of degree (final GPA): {CLASSES.filter(c => c[0] > 0).map(([min, name], i, arr) => `${name} ${min.toFixed(2)}${i === 0 ? `–${MAXP.toFixed(2)}` : `–${(arr[i - 1][0] - 0.01).toFixed(2)}`}`).join(' · ')}.</p>
+          <p className="hint">GPA = Σ(credits × grade points) ÷ Σ credits. Grade points from the <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">{CAMPUS.grading.sourceLabel}</a>; class boundaries as widely published for {CAMPUS.university}. Your official result is always the one on the UG student portal — check your programme's handbook for rules on resits and courses that don't count.</p>
         </div>
       )}
     </div>

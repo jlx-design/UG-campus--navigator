@@ -1,4 +1,5 @@
 import { InstallBanner } from '../components/Install';
+import { PlaceExtras } from '../components/PlaceExtras';
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -51,7 +52,7 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
   return (
     <>
       <div className="map-overlay-top">
-        <SearchBox onPick={l => select(l.id)} />
+        <SearchBox onPick={l => select(l.id)} placeholder={'Search buildings, rooms, halls, offices…'} />
         {usedCats.length > 0 && (
           <div className="chips" role="toolbar" aria-label="Filter by category">
             <button className="chip glass" aria-pressed={filter === null} onClick={() => setFilter(null)}>All</button>
@@ -78,7 +79,7 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
         <a className="fab fab-sos" href="#/emergency" aria-label="Emergency contacts"><Icon name="sos" /></a>
       </div>
       <InstallBanner />
-      <a className="ask-pill glass" href="#/assistant"><Icon name="sparkle" />Ask Campus AI</a>
+      <a className="ask-pill glass" href="#/assistant"><Icon name="sparkle" />{'Ask Campus AI'}</a>
       {layers && <LayersPanel mapApi={mapApi} onClose={() => setLayers(false)} />}
 
       {sel && !layers && (
@@ -96,13 +97,14 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
             <span className="spacer" />
             <button className="icon-btn" onClick={() => select(null)} aria-label="Close details"><Icon name="close" /></button>
           </div>
+          <PlaceExtras place={sel} />
           {sel.alt_names?.length > 0 && <p style={{ fontSize: 14 }}>Also known as: {sel.alt_names.join(', ')}</p>}
           {sel.description && <p>{sel.description}</p>}
           {sel.location_context && <p style={{ fontSize: 14 }}><b>Where:</b> {sel.location_context}</p>}
           {sel.accessibility && <p style={{ fontSize: 14 }}><b>Accessibility (verified):</b> {sel.accessibility}</p>}
           {sel.verification !== 'verified' && <p style={{ fontSize: 13 }}>This place comes from {sel.source_label} and hasn’t been confirmed by the app’s editors. Check signage on arrival.</p>}
           <div className="row wrap" style={{ marginTop: 12 }}>
-            <button className="btn primary" onClick={() => directions(sel.id)}><Icon name="walk" />Directions</button>
+            <button className="btn primary" onClick={() => directions(sel.id)}><Icon name="walk" />{'Directions'}</button>
             <button className="btn" onClick={() => toggleSaved(sel.id)} aria-pressed={saved.has(sel.id)}>
               <Icon name={saved.has(sel.id) ? 'starFill' : 'star'} />{saved.has(sel.id) ? 'Saved' : 'Save'}
             </button>

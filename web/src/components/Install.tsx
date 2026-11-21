@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { APP_NAME } from '../config';
 import { Icon } from './Icon';
 import { canPrompt, installAvailable, isIOS, isIOSNonSafari, isStandalone, onInstallChange, promptInstall } from '../lib/install';
 
@@ -21,7 +22,7 @@ export function IOSInstallSheet({ onClose }: { onClose: () => void }) {
         <ol className="install-steps">
           <li><span className="n">1</span>Tap the <b>Share</b> button <span className="kbd"><Icon name="share" /></span> in Safari’s toolbar.</li>
           <li><span className="n">2</span>Scroll down and tap <b>Add to Home Screen</b> <span className="kbd"><Icon name="plusSquare" /></span>.</li>
-          <li><span className="n">3</span>Tap <b>Add</b>. UG Navigator opens full-screen like a normal app.</li>
+          <li><span className="n">3</span>Tap <b>Add</b>. {APP_NAME} opens full-screen like a normal app.</li>
         </ol>
         <button className="btn primary block" onClick={onClose}>Got it</button>
       </div>
@@ -58,9 +59,9 @@ export function InstallBanner() {
   return (
     <>
       {show && (
-        <div className="install-banner glass" role="dialog" aria-label="Install UG Navigator">
+        <div className="install-banner glass" role="dialog" aria-label={`Install ${APP_NAME}`}>
           <img src="./icons/icon-192.png" alt="" width={44} height={44} />
-          <div style={{ flex: 1, minWidth: 0 }}><b>Add UG Navigator to your home screen</b><span>Opens full-screen, faster, works offline.</span></div>
+          <div style={{ flex: 1, minWidth: 0 }}><b>Add {APP_NAME} to your home screen</b><span>Opens full-screen, faster, works offline.</span></div>
           <button className="btn primary small" onClick={async () => { const r = await run(); if (r !== 'unavailable') setShow(false); }}>{isIOS() ? 'How' : 'Install'}</button>
           <button className="icon-btn sm" onClick={dismiss} aria-label="Not now"><Icon name="close" /></button>
         </div>

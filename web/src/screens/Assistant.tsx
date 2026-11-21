@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { track } from '../lib/track';
 import { askAssistant } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -29,6 +30,7 @@ export function Assistant() {
     const next: Msg[] = [...history.filter(m => !m.error), { role: 'user', content: q.slice(0, 2000) }];
     setMsgs(next); setInput(''); setBusy(true);
     try {
+      track('ai_question');
       const r = await askAssistant(next.map(m => ({ role: m.role, content: m.content })));
       setMsgs([...next, { role: 'assistant', content: r.answer, sources: r.sources, locationIds: r.location_ids }]);
     } catch (e: any) {

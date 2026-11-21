@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { APP_NAME } from '../config';
 import { useStore } from '../store';
 import { db, importOsm, rpc } from '../lib/api';
+import { SearchBox } from '../components/SearchBox';
+import { EVENT_CATS } from './Events';
 import { Icon } from '../components/Icon';
 import { BackLink, Empty, Loading, Notice, VerificationTag } from '../components/common';
 import { SECTIONS } from './Fresher';
@@ -8,14 +11,14 @@ import { ANN_CATEGORIES } from './Updates';
 import type { Announcement, ChecklistItem, FresherResource, Location, Report } from '../lib/types';
 import { fmtDate } from '../lib/geo';
 
-type Tab = 'overview' | 'locations' | 'announcements' | 'resources' | 'checklist' | 'emergency' | 'shuttles' | 'team' | 'reports' | 'audit';
+type Tab = 'overview' | 'insights' | 'locations' | 'rooms' | 'hours' | 'listings' | 'events' | 'announcements' | 'resources' | 'checklist' | 'emergency' | 'shuttles' | 'team' | 'reports' | 'audit';
 
 export function Admin({ tab }: { tab: Tab }) {
   const { role, authReady, user } = useStore();
   if (!authReady) return <div className="screen"><Loading /></div>;
   if (!user || (role !== 'editor' && role !== 'admin'))
     return <div className="screen"><h1>Administration</h1><Notice kind="error">You need an editor or administrator role to view this area. Roles are granted by an administrator, not from inside the app.</Notice></div>;
-  const tabs: [Tab, string][] = [['overview', 'Overview'], ['locations', 'Places'], ['announcements', 'Announcements'], ['resources', 'Guide content'], ['checklist', 'Checklist'], ['emergency', 'Emergency'], ['shuttles', 'Shuttles'], ...(role === 'admin' ? [['team', 'Team'] as [Tab, string]] : []), ['reports', 'Reports'], ['audit', 'Audit log']];
+  const tabs: [Tab, string][] = [['overview', 'Overview'], ['insights', 'Insights'], ['locations', 'Places'], ['rooms', 'Rooms'], ['hours', 'Opening hours'], ['listings', 'Business listings'], ['events', 'Events'], ['announcements', 'Announcements'], ['resources', 'Guide content'], ['checklist', 'Checklist'], ['emergency', 'Emergency'], ['shuttles', 'Shuttles'], ...(role === 'admin' ? [['team', 'Team'] as [Tab, string]] : []), ['reports', 'Reports'], ['audit', 'Audit log']];
   return (
     <div className="screen" style={{ maxWidth: 1000 }}>
       <BackLink href="#/me" label="Me" />
@@ -23,6 +26,11 @@ export function Admin({ tab }: { tab: Tab }) {
       <p className="lede">Signed in as {role}. Every change here is enforced by database policies and recorded in the audit log.</p>
       <div className="tabs" role="tablist">{tabs.map(([k, l]) => <a key={k} role="tab" aria-selected={tab === k} className="chip" aria-pressed={tab === k} href={`#/admin/${k}`}>{l}</a>)}</div>
       {tab === 'overview' && <Overview />}
+      {tab === 'insights' && <Insights />}
+      {tab === 'rooms' && <RoomsAdmin />}
+      {tab === 'hours' && <HoursAdmin />}
+      {tab === 'listings' && <ListingsAdmin />}
+      {tab === 'events' && <EventsAdmin />}
       {tab === 'emergency' && <EmergencyAdmin />}
       {tab === 'shuttles' && <ShuttlesAdmin />}
       {tab === 'team' && role === 'admin' && <TeamAdmin />}
@@ -66,7 +74,7 @@ function LocationsAdmin() {
     const body = {
       name: edit.name?.trim(), category: edit.category, description: blank(edit.description || ''), lat: Number(edit.lat), lng: Number(edit.lng),
       location_context: blank(edit.location_context || ''), alt_names: (edit.alt_names || []).map(s => s.trim()).filter(Boolean),
-      accessibility: blank(edit.accessibility || ''), source_label: edit.source_label?.trim() || 'UG Campus Navigator editors', source_url: blank(edit.source_url || ''),
+      accessibility: blank(edit.accessibility || ''), source_label: edit.source_label?.trim() || `${APP_NAME} editors`, source_url: blank(edit.source_url || ''),
       verification: edit.verification, is_published: edit.is_published ?? true,
       last_verified_at: edit.verification === 'verified' ? new Date().toISOString() : edit.last_verified_at ?? null,
     };
@@ -464,6 +472,169 @@ function TeamAdmin() {
       <div className="section-title">Pending grants</div>
       <div className="list">{invites.rows?.map(i => <div key={i.email} className="card row"><b style={{ flex: 1 }}>{i.email}</b><span className="tag">{i.role}</span>
         <button className="btn small" onClick={async () => { await db('admin_invites', `email=eq.${encodeURIComponent(i.email)}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(() => {}); invites.load(); }}><Icon name="trash" /></button></div>)}</div>
+    </>
+  );
+}
+
+
+// ───────── Place picker used by the editors below ─────────
+function PlacePick({ value, onChange, label = 'Building / place' }: { value: string | null; onChange: (id: string | null) => void; label?: string }) {
+  const { byId } = useStore();
+  return <div className="field"><label>{label}</label>{value ? <div className="chip-sel"><Icon name="pin" />{byId.get(value)?.name || 'Selected place'}<button className="icon-btn sm" aria-label="Clear" onClick={() => onChange(null)}><Icon name="close" /></button></div> : <SearchBox onPick={l => onChange(l.id)} placeholder="Search the directory…" />}</div>;
+}
+const SRC = ({ v, set }: { v: any; set: (x: any) => void }) => (
+  <div className="row wrap"><Input label="Source label (required)" value={v.source_label || ''} onChange={e => set({ ...v, source_label: e.target.value })} /><Input label="Source URL" type="url" value={v.source_url || ''} onChange={e => set({ ...v, source_url: e.target.value })} /></div>
+);
+
+// ───────── Insights (aggregate counts only) ─────────
+function Insights() {
+  const [d, setD] = useState<any>(null); const [err, setErr] = useState(''); const [days, setDays] = useState(30);
+  useEffect(() => { setD(null); rpc<any>('admin_insights', { p_days: days }).then(setD).catch(e => setErr(e.message)); }, [days]);
+  if (err) return <Notice kind="error">{err}</Notice>;
+  const totals: Record<string, number> = {}; for (const r of d?.daily || []) totals[r.event] = (totals[r.event] || 0) + r.n;
+  const opens = (d?.daily || []).filter((r: any) => r.event === 'app_open'); const max = Math.max(1, ...opens.map((r: any) => r.n));
+  const L: Record<string, string> = { app_open: 'App opens', search: 'Searches', place_view: 'Places viewed', route: 'Routes planned', nav_start: 'Navigations started', nav_arrive: 'Arrivals', ai_question: 'AI questions', install: 'Installs' };
+  return (
+    <>
+      <div className="row" style={{ marginBottom: 12 }}><span className="sub">Anonymous daily counts — no personal data or search text is stored.</span><span className="spacer" /><div className="seg">{[7, 30, 90].map(n => <button key={n} aria-pressed={days === n} onClick={() => setDays(n)}>{n}d</button>)}</div></div>
+      {!d ? <Loading /> : <>
+        <div className="stat-grid">{Object.keys(L).map(k => <div key={k} className="stat"><span>{L[k]}</span><b>{totals[k] || 0}</b></div>)}</div>
+        <div className="card"><h3>App opens per day</h3>{opens.length === 0 ? <p className="sub">No data yet.</p> : <div className="bars">{opens.map((r: any) => <div key={r.day} title={`${r.day}: ${r.n}`}><i style={{ height: `${(r.n / max) * 100}%` }} /></div>)}</div>}</div>
+        <div className="row wrap" style={{ alignItems: 'stretch', marginTop: 10 }}>
+          {[['Top destinations (routes)', d.top_destinations], ['Most viewed places', d.top_viewed]].map(([t, list]: any) => (
+            <div key={t} className="card" style={{ flex: 1, minWidth: 240, marginTop: 0 }}><h3>{t}</h3>{list.length === 0 ? <p className="sub">No data yet.</p> : <ol className="rank">{list.map((x: any) => <li key={x.name}><span>{x.name}</span><b>{x.n}</b></li>)}</ol>}</div>))}
+        </div>
+      </>}
+    </>
+  );
+}
+
+// ───────── Rooms ─────────
+function RoomsAdmin() {
+  const { toast, byId } = useStore();
+  const { rows, err, load } = useRows<any>('rooms', 'select=*&order=code.asc&limit=1000');
+  const [e, setE] = useState<any | null>(null); const [q, setQ] = useState('');
+  const save = async () => {
+    const body = { location_id: e.location_id, code: e.code?.trim(), name: blank(e.name || ''), floor: blank(e.floor || ''), capacity: e.capacity ? Number(e.capacity) : null, directions: blank(e.directions || ''),
+      source_label: e.source_label?.trim(), source_url: blank(e.source_url || ''), verification: e.verification || 'unverified', is_published: e.is_published ?? true };
+    if (!body.location_id || !body.code || !body.source_label) return toast('Building, room code and source are required', 'error');
+    try { if (e.id) await db('rooms', `id=eq.${e.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('rooms', '', { method: 'POST', body, prefer: 'return=minimal' }); setE(null); load(); toast('Room saved'); } catch (x: any) { toast(x.message, 'error'); }
+  };
+  const shown = (rows || []).filter(r => !q || `${r.code} ${r.name || ''} ${byId.get(r.location_id)?.name || ''}`.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <>
+      <div className="row" style={{ marginBottom: 12 }}><input className="input" style={{ flex: 1 }} placeholder="Filter rooms…" value={q} onChange={x => setQ(x.target.value)} /><button className="btn" onClick={() => setE({ verification: 'unverified', is_published: true })}><Icon name="plus" />Room</button></div>
+      {e && <div className="card" style={{ marginBottom: 12 }}>
+        <PlacePick value={e.location_id || null} onChange={id => setE({ ...e, location_id: id })} />
+        <div className="row wrap"><Input label="Room code" placeholder="e.g. JQB 23" value={e.code || ''} onChange={x => setE({ ...e, code: x.target.value })} /><Input label="Name (optional)" value={e.name || ''} onChange={x => setE({ ...e, name: x.target.value })} /></div>
+        <div className="row wrap"><Input label="Floor" placeholder="e.g. First floor" value={e.floor || ''} onChange={x => setE({ ...e, floor: x.target.value })} /><Input label="Capacity" type="number" value={e.capacity || ''} onChange={x => setE({ ...e, capacity: x.target.value })} /></div>
+        <Text label="How to find it inside" value={e.directions || ''} onChange={x => setE({ ...e, directions: x.target.value })} />
+        <SRC v={e} set={setE} />
+        <div className="row wrap"><label className="row" style={{ gap: 8 }}><input type="checkbox" checked={e.verification === 'verified'} onChange={x => setE({ ...e, verification: x.target.checked ? 'verified' : 'unverified' })} />Verified on site</label>
+          <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={e.is_published ?? true} onChange={x => setE({ ...e, is_published: x.target.checked })} />Published</label></div>
+        <div className="row"><button className="btn primary" onClick={save}>Save</button><button className="btn ghost" onClick={() => setE(null)}>Cancel</button></div></div>}
+      {err && <Notice kind="error">{err}</Notice>}{!rows && !err && <Loading />}
+      {rows?.length === 0 && <Empty icon="door" title="No rooms yet">Add lecture rooms so students can search “JQB 23” and get directions to the right building.</Empty>}
+      <div className="list">{shown.slice(0, 300).map(r => <div key={r.id} className="card row"><div style={{ flex: 1, minWidth: 0 }}><b>{r.code}</b>{r.name ? ` · ${r.name}` : ''}<div className="sub">{byId.get(r.location_id)?.name}{r.floor ? ` · ${r.floor}` : ''} · {r.verification}{r.is_published ? '' : ' · hidden'}</div></div>
+        <button className="btn small" onClick={() => setE(r)}><Icon name="edit" /></button><button className="btn small" onClick={async () => { if (confirm(`Delete ${r.code}?`)) { await db('rooms', `id=eq.${r.id}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(x => toast(x.message, 'error')); load(); } }}><Icon name="trash" /></button></div>)}</div>
+    </>
+  );
+}
+
+// ───────── Opening hours ─────────
+const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function HoursAdmin() {
+  const { toast } = useStore();
+  const [loc, setLoc] = useState<string | null>(null); const [rows, setRows] = useState<any[] | null>(null);
+  const [form, setForm] = useState<any>({ days: [1, 2, 3, 4, 5], opens: '08:00', closes: '17:00', checked_at: new Date().toISOString().slice(0, 10) });
+  const load = (id: string) => db<any[]>('location_hours', `select=*&location_id=eq.${id}&order=weekday.asc,opens.asc`).then(setRows).catch(e => toast(e.message, 'error'));
+  useEffect(() => { if (loc) load(loc); else setRows(null); }, [loc]);
+  const add = async () => {
+    if (!loc || !form.days.length || !form.source_label?.trim()) return toast('Pick a place, days and a source', 'error');
+    if (form.closes <= form.opens) return toast('Closing time must be after opening time', 'error');
+    try { await db('location_hours', '', { method: 'POST', prefer: 'return=minimal', body: form.days.map((d: number) => ({ location_id: loc, weekday: d, opens: form.opens, closes: form.closes, note: blank(form.note || ''), source_label: form.source_label.trim(), source_url: blank(form.source_url || ''), checked_at: form.checked_at })) }); load(loc); toast('Hours added'); } catch (x: any) { toast(x.message, 'error'); }
+  };
+  return (
+    <>
+      <p className="hint">Only enter hours you've confirmed (signage, official page, or the office itself), and cite where they came from. Students see “Open now” on the place card.</p>
+      <PlacePick value={loc} onChange={setLoc} label="Place" />
+      {loc && <div className="card">
+        <div className="field"><label>Days</label><div className="seg wrap">{WD.map((d, i) => <button key={d} aria-pressed={form.days.includes(i + 1)} onClick={() => setForm({ ...form, days: form.days.includes(i + 1) ? form.days.filter((x: number) => x !== i + 1) : [...form.days, i + 1] })}>{d}</button>)}</div></div>
+        <div className="row wrap"><Input label="Opens" type="time" value={form.opens} onChange={e => setForm({ ...form, opens: e.target.value })} /><Input label="Closes" type="time" value={form.closes} onChange={e => setForm({ ...form, closes: e.target.value })} /><Input label="Checked on" type="date" value={form.checked_at} onChange={e => setForm({ ...form, checked_at: e.target.value })} /></div>
+        <Input label="Note (optional)" placeholder="e.g. semester time only" value={form.note || ''} onChange={e => setForm({ ...form, note: e.target.value })} />
+        <SRC v={form} set={setForm} />
+        <button className="btn primary" onClick={add}>Add hours</button>
+      </div>}
+      {rows && <div className="list" style={{ marginTop: 10 }}>{rows.length === 0 && <p className="sub">No hours yet for this place.</p>}{rows.map(r => <div key={r.id} className="card row"><b style={{ width: 44 }}>{WD[r.weekday - 1]}</b><span style={{ flex: 1 }}>{r.opens.slice(0, 5)}–{r.closes.slice(0, 5)}{r.note ? ` · ${r.note}` : ''}<div className="sub">{r.source_label} · {r.checked_at}</div></span>
+        <button className="btn small" onClick={async () => { await db('location_hours', `id=eq.${r.id}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(x => toast(x.message, 'error')); load(loc!); }}><Icon name="trash" /></button></div>)}</div>}
+    </>
+  );
+}
+
+// ───────── Business listings (clearly separated from university facilities) ─────────
+function ListingsAdmin() {
+  const { toast, reloadLocations } = useStore();
+  const { rows, err, load } = useRows<any>('locations', 'select=*&is_listing=eq.true&order=name.asc');
+  const [e, setE] = useState<any | null>(null);
+  const save = async () => {
+    const lat = Number(e.lat), lng = Number(e.lng);
+    const body = { name: e.name?.trim(), category: 'business', description: blank(e.description || ''), lat, lng, is_listing: true, is_sponsored: !!e.is_sponsored, listing_phone: blank(e.listing_phone || ''), listing_website: blank(e.listing_website || ''),
+      source_label: e.source_label?.trim() || 'Business owner', source_url: blank(e.source_url || ''), verification: e.verification || 'unverified', is_published: e.is_published ?? true, alt_names: [] };
+    if (!body.name || !Number.isFinite(lat) || !Number.isFinite(lng)) return toast('Name and map position are required', 'error');
+    if (body.listing_website && !/^https:\/\//.test(body.listing_website)) return toast('Website must start with https://', 'error');
+    try { if (e.id) await db('locations', `id=eq.${e.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('locations', '', { method: 'POST', body, prefer: 'return=minimal' }); setE(null); load(); reloadLocations(); toast('Listing saved'); } catch (x: any) { toast(x.message, 'error'); }
+  };
+  return (
+    <>
+      <p className="hint">Listings (shops, eateries, printing, salons…) show a “Business listing” or “Sponsored” label and are never mixed with official university information. Verify the business exists before publishing.</p>
+      <button className="btn" style={{ marginBottom: 12 }} onClick={() => setE({ is_published: true })}><Icon name="plus" />New listing</button>
+      {e && <div className="card" style={{ marginBottom: 12 }}>
+        <Input label="Business name" value={e.name || ''} onChange={x => setE({ ...e, name: x.target.value })} />
+        <Text label="What they offer" value={e.description || ''} onChange={x => setE({ ...e, description: x.target.value })} />
+        <div className="row wrap"><Input label="Latitude" value={e.lat ?? ''} onChange={x => setE({ ...e, lat: x.target.value })} /><Input label="Longitude" value={e.lng ?? ''} onChange={x => setE({ ...e, lng: x.target.value })} /></div>
+        <div className="row wrap"><Input label="Phone" type="tel" value={e.listing_phone || ''} onChange={x => setE({ ...e, listing_phone: x.target.value })} /><Input label="Website (https://)" value={e.listing_website || ''} onChange={x => setE({ ...e, listing_website: x.target.value })} /></div>
+        <SRC v={e} set={setE} />
+        <div className="row wrap"><label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!e.is_sponsored} onChange={x => setE({ ...e, is_sponsored: x.target.checked })} />Sponsored (paid)</label>
+          <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={e.verification === 'verified'} onChange={x => setE({ ...e, verification: x.target.checked ? 'verified' : 'unverified' })} />Verified it exists</label>
+          <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={e.is_published ?? true} onChange={x => setE({ ...e, is_published: x.target.checked })} />Published</label></div>
+        <div className="row"><button className="btn primary" onClick={save}>Save</button><button className="btn ghost" onClick={() => setE(null)}>Cancel</button></div></div>}
+      {err && <Notice kind="error">{err}</Notice>}{!rows && !err && <Loading />}
+      {rows?.length === 0 && <Empty icon="shop" title="No business listings yet" />}
+      <div className="list">{rows?.map(r => <div key={r.id} className="card row"><div style={{ flex: 1, minWidth: 0 }}><b>{r.name}</b> {r.is_sponsored && <span className="tag warn">Sponsored</span>}<div className="sub">{r.listing_phone || 'no phone'} · {r.is_published ? 'published' : 'hidden'}</div></div><button className="btn small" onClick={() => setE(r)}><Icon name="edit" /></button></div>)}</div>
+    </>
+  );
+}
+
+// ───────── Events ─────────
+function EventsAdmin() {
+  const { toast, byId } = useStore();
+  const { rows, err, load } = useRows<any>('events', 'select=*&order=starts_at.desc&limit=300');
+  const [e, setE] = useState<any | null>(null);
+  const local = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+  const save = async () => {
+    const body = { title: e.title?.trim(), description: blank(e.description || ''), starts_at: e.starts ? new Date(e.starts).toISOString() : null, ends_at: e.ends ? new Date(e.ends).toISOString() : null,
+      location_id: e.location_id || null, venue_text: e.location_id ? null : blank(e.venue_text || ''), organiser: blank(e.organiser || ''), category: e.category || 'general',
+      source_label: e.source_label?.trim(), source_url: blank(e.source_url || ''), status: e.status || 'draft' };
+    if (!body.title || !body.starts_at || !body.source_label) return toast('Title, start time and source are required', 'error');
+    try { if (e.id) await db('events', `id=eq.${e.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('events', '', { method: 'POST', body, prefer: 'return=minimal' }); setE(null); load(); toast('Event saved'); } catch (x: any) { toast(x.message, 'error'); }
+  };
+  return (
+    <>
+      <button className="btn" style={{ marginBottom: 12 }} onClick={() => setE({ category: 'general', status: 'draft' })}><Icon name="plus" />New event</button>
+      {e && <div className="card" style={{ marginBottom: 12 }}>
+        <Input label="Title" value={e.title || ''} onChange={x => setE({ ...e, title: x.target.value })} />
+        <div className="row wrap"><Input label="Starts" type="datetime-local" value={e.starts ?? local(e.starts_at)} onChange={x => setE({ ...e, starts: x.target.value })} /><Input label="Ends (optional)" type="datetime-local" value={e.ends ?? local(e.ends_at)} onChange={x => setE({ ...e, ends: x.target.value })} /></div>
+        <div className="row wrap"><div className="field"><label>Category</label><select className="input" value={e.category} onChange={x => setE({ ...e, category: x.target.value })}>{Object.entries(EVENT_CATS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div><Input label="Organiser" value={e.organiser || ''} onChange={x => setE({ ...e, organiser: x.target.value })} /></div>
+        <PlacePick value={e.location_id || null} onChange={id => setE({ ...e, location_id: id })} label="Venue (from directory)" />
+        {!e.location_id && <Input label="…or venue text" value={e.venue_text || ''} onChange={x => setE({ ...e, venue_text: x.target.value })} />}
+        <Text label="Description" value={e.description || ''} onChange={x => setE({ ...e, description: x.target.value })} />
+        <SRC v={e} set={setE} />
+        <div className="field"><label>Status</label><div className="seg">{['draft', 'published', 'cancelled'].map(st => <button key={st} aria-pressed={e.status === st} onClick={() => setE({ ...e, status: st })}>{st}</button>)}</div></div>
+        <div className="row"><button className="btn primary" onClick={save}>Save</button><button className="btn ghost" onClick={() => setE(null)}>Cancel</button></div></div>}
+      {err && <Notice kind="error">{err}</Notice>}{!rows && !err && <Loading />}
+      {rows?.length === 0 && <Empty icon="event" title="No events yet" />}
+      <div className="list">{rows?.map(r => <div key={r.id} className="card row"><div style={{ flex: 1, minWidth: 0 }}><b>{r.title}</b><div className="sub">{new Date(r.starts_at).toLocaleString()} · {(r.location_id && byId.get(r.location_id)?.name) || r.venue_text || 'no venue'} · <b>{r.status}</b></div></div><button className="btn small" onClick={() => setE(r)}><Icon name="edit" /></button>
+        <button className="btn small" onClick={async () => { if (confirm('Delete this event?')) { await db('events', `id=eq.${r.id}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(x => toast(x.message, 'error')); load(); } }}><Icon name="trash" /></button></div>)}</div>
     </>
   );
 }

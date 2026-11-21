@@ -6,6 +6,7 @@ export interface Location {
   accessibility: string | null; source_label: string; source_url: string | null;
   verification: Verification; last_verified_at: string | null; is_published: boolean;
   updated_at: string;
+  is_listing?: boolean; is_sponsored?: boolean; listing_phone?: string | null; listing_website?: string | null;
 }
 export interface Category { slug: string; label: string; icon: string; sort_order: number }
 
@@ -45,3 +46,5 @@ export interface AssistantSource { id: string; kind: string; title: string; url:
 export interface AssistantReply { answer: string; sources: AssistantSource[]; location_ids: string[]; model: string }
 
 export interface SessionUser { id: string; email: string; name: string; emailVerified: boolean }
+
+export interface RoomHit { id: string; code: string; name: string | null; floor: string | null; directions: string | null; verification: string; location_id: string; building: string }

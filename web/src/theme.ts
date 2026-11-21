@@ -1,3 +1,4 @@
+import { CAMPUS } from './campus.gen';
 // Appearance preferences: applied as CSS custom properties, stored locally and synced to the profile.
 export type Mode = 'light' | 'dark' | 'system' | 'amoled';
 export type MapStyle = 'streets' | 'satellite' | 'dark' | 'auto';
@@ -6,11 +7,11 @@ export interface Prefs {
   textScale: 0.9 | 1 | 1.1 | 1.2; mapStyle: MapStyle; buildings3d: boolean; reduceMotion: boolean;
 }
 export const ACCENTS: { name: string; hex: string }[] = [
-  { name: 'Legon Blue', hex: '#1d4ed8' }, { name: 'Royal Gold', hex: '#c8961e' }, { name: 'Emerald', hex: '#059669' },
+  { name: CAMPUS.brand.accentName, hex: CAMPUS.brand.accent }, { name: 'Royal Gold', hex: '#c8961e' }, { name: 'Emerald', hex: '#059669' },
   { name: 'Crimson', hex: '#dc2626' }, { name: 'Violet', hex: '#7c3aed' }, { name: 'Ocean', hex: '#0891b2' },
   { name: 'Rose', hex: '#e11d48' }, { name: 'Graphite', hex: '#334155' },
 ];
-export const DEFAULT_PREFS: Prefs = { mode: 'system', accent: '#1d4ed8', surface: 'glass', radius: 'round', textScale: 1, mapStyle: 'auto', buildings3d: true, reduceMotion: false };
+export const DEFAULT_PREFS: Prefs = { mode: 'system', accent: CAMPUS.brand.accent as string, surface: 'glass', radius: 'round', textScale: 1, mapStyle: 'auto', buildings3d: true, reduceMotion: false };
 const KEY = 'ugnav.prefs.v1';
 
 export function loadPrefs(): Prefs {

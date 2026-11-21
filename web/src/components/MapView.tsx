@@ -15,6 +15,8 @@ export interface MapApi {
   setRouteProgress: (done: LatLng[] | null) => void;
   /** Called when the user drags/rotates the map themselves (to pause following). */
   onUserMove: (cb: (() => void) | null) => void;
+  /** Someone else's shared live position ("Walk with me") and where they're heading. */
+  setFollow: (who: { lat: number; lng: number; heading: number | null; name: string } | null, dest: { lat: number; lng: number } | null) => void;
   toggle3d: () => boolean; resetNorth: () => void; bearing: () => number; pitch: () => number;
 }
 
@@ -44,7 +46,7 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
   const { locations, selectedId, select, geo, route, navigating, pickingOrigin, setPickingOrigin, origin, setOrigin, destId, byId, prefs, shuttles, shuttleRoutes, showShuttles } = s;
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
-  const markers = useRef<{ sel?: any; me?: any; origin?: any; shuttles: Map<string, any> }>({ shuttles: new Map() });
+  const markers = useRef<{ sel?: any; me?: any; origin?: any; friend?: any; friendDest?: any; shuttles: Map<string, any> }>({ shuttles: new Map() });
   const [ready, setReady] = useState(0);              // bumps after every style load so layers get re-added
   const [failed, setFailed] = useState<string | null>(null);
   const styleName = resolvedMapStyle(prefs);
@@ -85,6 +87,17 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
       },
       setRouteProgress: done => { const src = m.getSource('ug-route-done'); src?.setData(done && done.length > 1 ? { type: 'Feature', geometry: { type: 'LineString', coordinates: done.map(([la, ln]) => [ln, la]) }, properties: {} } : { type: 'FeatureCollection', features: [] }); },
       onUserMove: cb => { userMove.cb = cb; },
+      setFollow: (who, dest) => {
+        const mk = markers.current;
+        if (!who) { mk.friend?.remove(); mk.friend = undefined; } else {
+          if (!mk.friend) { const d = document.createElement('div'); d.className = 'me friend has-heading'; d.innerHTML = '<i class="me-cone"></i><i class="me-dot"></i><span class="friend-name"></span>'; mk.friend = new maplibregl.Marker({ element: d, rotationAlignment: 'map' }).setLngLat([who.lng, who.lat]).addTo(m); }
+          mk.friend.setLngLat([who.lng, who.lat]); mk.friend.getElement().querySelector('.friend-name').textContent = who.name;
+          mk.friend.getElement().classList.toggle('has-heading', who.heading !== null); if (who.heading !== null) mk.friend.setRotation(who.heading);
+        }
+        if (!dest) { mk.friendDest?.remove(); mk.friendDest = undefined; } else if (!mk.friendDest) {
+          const d = document.createElement('div'); d.className = 'pin-sel'; d.innerHTML = iconSvgString('arrive'); mk.friendDest = new maplibregl.Marker({ element: d, anchor: 'bottom' }).setLngLat([dest.lng, dest.lat]).addTo(m);
+        }
+      },
       flyTo: (p, z = 17.5) => m.flyTo({ center: [p[1], p[0]], zoom: Math.max(m.getZoom(), z), duration: prefs.reduceMotion ? 0 : 900, essential: true }),
       fitRoute: () => { m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }); const c = routeCoords.current; if (c.length) { const b = c.reduce((bb: any, p: any) => bb.extend(p), new maplibregl.LngLatBounds(c[0], c[0])); m.fitBounds(b, { padding: { top: 170, bottom: 320, left: 50, right: 50 }, maxZoom: 18, bearing: 0, pitch: 0, duration: 800 }); } },
       home: () => m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }) && m.fitBounds(CAMPUS_BOUNDS, { padding: 20, duration: 800 }),

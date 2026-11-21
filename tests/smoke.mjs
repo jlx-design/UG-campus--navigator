@@ -10,7 +10,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) errors.push('console: ' + m.text()); });
-const routes = ['#/map', '#/navigate', '#/schedule', '#/guide', '#/fresher/checklist', '#/emergency', '#/shuttles', '#/updates', '#/assistant', '#/me', '#/appearance', '#/login', '#/register', '#/forgot-password', '#/reset-password?token=x', '#/report', '#/about', '#/admin'];
+const routes = ['#/map', '#/navigate', '#/schedule', '#/schedule/exams', '#/gpa', '#/details', '#/updates/events', '#/follow/0123456789abcdef0123456789abcdef', '#/guide', '#/fresher/checklist', '#/emergency', '#/shuttles', '#/updates', '#/assistant', '#/me', '#/appearance', '#/login', '#/register', '#/forgot-password', '#/reset-password?token=x', '#/report', '#/about', '#/admin'];
 const results = [];
 for (const r of routes) {
   await page.goto(`${base}/${r}`, { waitUntil: 'domcontentloaded' });

@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { Icon } from '../components/Icon';
 import { SearchBox } from '../components/SearchBox';
 import { Empty, Loading, Notice } from '../components/common';
+import { ScheduleTabs, RemindersCard } from '../components/ScheduleTabs';
 
 interface Course { id: string; code: string; title: string | null; lecturer: string | null; credits: number | null; color: string; semester: string | null; notes: string | null }
 interface Session { id: string; course_id: string; kind: string; weekday: number; starts_at: string; ends_at: string; location_id: string | null; venue_text: string | null }
@@ -58,7 +59,7 @@ export function Schedule() {
   if (!user) return (
     <div className="screen">
       <header className="page-head"><h1>Schedule</h1><p className="lede">Your courses and lecture timetable, with one-tap directions to every venue.</p></header>
-      <a className="tool-link" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><div><b>GPA calculator</b><span>Semester GPA, CGPA and class of degree</span></div><Icon name="chevron" /></a>
+      <ScheduleTabs active="timetable" />
 
       <div className="hero-card">
         <Icon name="calendar" style={{ width: 34, height: 34 }} />
@@ -103,7 +104,8 @@ export function Schedule() {
         <h1>Schedule</h1>
         <p className="lede">{DAY_FULL[todayIdx() - 1]}, {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}{courses?.length ? ` · ${courses.length} course${courses.length > 1 ? 's' : ''}${credits ? ` · ${credits} credits` : ''}` : ''}</p>
       </header>
-      <a className="tool-link" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><div><b>GPA calculator</b><span>Semester GPA, CGPA and class of degree</span></div><Icon name="chevron" /></a>
+      <ScheduleTabs active="timetable" />
+      <RemindersCard />
       {err && <Notice kind="error">{err} <button className="btn small" onClick={load}>Retry</button></Notice>}
       {!courses && !err && <Loading />}
 

@@ -5,10 +5,13 @@ import { Icon } from './components/Icon';
 import { ExploreOverlay } from './screens/Explore';
 import { NavigateOverlay } from './screens/Navigate';
 import { db } from './lib/api';
+import { track } from './lib/track';
 
 // Non-map screens are code-split so the map opens first.
 const Fresher = lazy(() => import('./screens/Fresher').then(m => ({ default: m.FresherRoute })));
 const Updates = lazy(() => import('./screens/Updates').then(m => ({ default: m.UpdatesRoute })));
+const Exams = lazy(() => import('./screens/Exams').then(m => ({ default: m.Exams })));
+const Follow = lazy(() => import('./screens/Follow').then(m => ({ default: m.FollowOverlay })));
 const Gpa = lazy(() => import('./screens/Gpa').then(m => ({ default: m.Gpa })));
 const MyDetails = lazy(() => import('./screens/Details').then(m => ({ default: m.MyDetails })));
 const Assistant = lazy(() => import('./screens/Assistant').then(m => ({ default: m.Assistant })));
@@ -47,17 +50,18 @@ function useUnreadCount() {
 
 const TABS: [string, string, string][] = [['map', 'Map', 'map'], ['schedule', 'Schedule', 'calendar'], ['guide', 'Guide', 'book'], ['updates', 'Updates', 'bell'], ['me', 'Me', 'user']];
 const TAB_OF: Record<string, string> = {
-  '': 'map', map: 'map', explore: 'map', navigate: 'map', schedule: 'schedule', gpa: 'schedule', details: 'me', guide: 'guide', fresher: 'guide', assistant: 'guide', emergency: 'guide', shuttles: 'guide',
+  '': 'map', map: 'map', follow: 'map', explore: 'map', navigate: 'map', schedule: 'schedule', gpa: 'schedule', details: 'me', guide: 'guide', fresher: 'guide', assistant: 'guide', emergency: 'guide', shuttles: 'guide',
   updates: 'updates', me: 'me', profile: 'me', login: 'me', register: 'me', 'forgot-password': 'me', 'reset-password': 'me', about: 'me', report: 'me', admin: 'me', appearance: 'me',
 };
 
 function Shell() {
+  useEffect(() => { track('app_open'); }, []);
   const hash = useHash();
   const [path, qs] = hash.slice(1).split('?');
   const params = new URLSearchParams(qs || '');
   const seg = path.split('/').filter(Boolean);
   const top = seg[0] || 'map';
-  const isMap = top === 'map' || top === 'explore' || top === 'navigate';
+  const isMap = top === 'map' || top === 'explore' || top === 'navigate' || top === 'follow';
   const mapApi = useRef<MapApi | null>(null);
   const [filter, setFilter] = useState<string | null>(null);
   const { toastMsg, navigating } = useStore();
@@ -73,6 +77,7 @@ function Shell() {
   else if (top === 'guide') page = <Fresher seg={['fresher']} />;
   else if (top === 'updates') page = <Updates seg={seg} />;
   else if (top === 'assistant') page = <Assistant />;
+  else if (top === 'schedule' && seg[1] === 'exams') page = <Exams />;
   else if (top === 'schedule') page = <Schedule />;
   else if (top === 'gpa') page = <Gpa />;
   else if (top === 'details') page = <MyDetails />;
@@ -87,6 +92,7 @@ function Shell() {
       <MapView visible={isMap} apiRef={mapApi} filter={top === 'map' || top === 'explore' ? filter : null} />
       {(top === 'map' || top === 'explore') && <ExploreOverlay mapApi={mapApi} filter={filter} setFilter={setFilter} />}
       {top === 'navigate' && <NavigateOverlay mapApi={mapApi} />}
+      {top === 'follow' && <Suspense fallback={null}><Follow mapApi={mapApi} token={seg[1] || ''} /></Suspense>}
       {page && <Suspense fallback={<div className="screen"><span className="spinner" /></div>}><div className="page" key={top}>{page}</div></Suspense>}
       {!(navigating && top === 'navigate') && (
         <nav className="bottom-nav glass" aria-label="Main">

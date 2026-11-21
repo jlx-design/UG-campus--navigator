@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { rpc } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from './Icon';
-import type { Location } from '../lib/types';
+import type { Location, RoomHit } from '../lib/types';
+import { track } from '../lib/track';
 
 /** Debounced server-side search (search_locations RPC: full-text + trigram + alternative names). */
 export function SearchBox({ onPick, placeholder = 'Search buildings, halls, offices…', autoFocus = false }: { onPick: (l: Location) => void; placeholder?: string; autoFocus?: boolean }) {
-  const { categories } = useStore();
+  const { categories, byId, setRoomFocus } = useStore();
+  const [rooms, setRooms] = useState<RoomHit[]>([]);
   const [q, setQ] = useState('');
   const [results, setResults] = useState<Location[] | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
@@ -18,18 +20,19 @@ export function SearchBox({ onPick, placeholder = 'Search buildings, halls, offi
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setResults(null); setState('idle'); return; }
+    if (term.length < 2) { setResults(null); setRooms([]); setState('idle'); return; }
     const my = ++seq.current;
     setState('loading');
     const t = setTimeout(() => {
-      rpc<Location[]>('search_locations', { q: term, max_results: 12 })
-        .then(r => { if (my === seq.current) { setResults(r); setState('idle'); setActive(-1); } })
+      Promise.all([rpc<Location[]>('search_locations', { q: term, max_results: 12 }), rpc<RoomHit[]>('search_rooms', { q: term, max_results: 6 }).catch(() => [] as RoomHit[])])
+        .then(([r, rm]) => { if (my === seq.current) { setResults(r); setRooms(rm.filter(x => byId.has(x.location_id))); setState('idle'); setActive(-1); track('search'); } })
         .catch(e => { if (my === seq.current) { setState('error'); setErr(e.message); } });
     }, 220);
     return () => clearTimeout(t);
   }, [q]);
 
-  const pick = (l: Location) => { onPick(l); setOpen(false); setQ(''); setResults(null); (document.activeElement as HTMLElement)?.blur(); };
+  const pickRoom = (r: RoomHit) => { setRoomFocus(r); const b = byId.get(r.location_id); if (b) pick(b, true); };
+  const pick = (l: Location, keepRoom = false) => { if (!keepRoom) setRoomFocus(null); onPick(l); setOpen(false); setQ(''); setResults(null); (document.activeElement as HTMLElement)?.blur(); };
   const onKey = (e: React.KeyboardEvent) => {
     if (!results?.length) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(results.length - 1, a + 1)); }
@@ -51,7 +54,16 @@ export function SearchBox({ onPick, placeholder = 'Search buildings, halls, offi
       {open && q.trim().length >= 2 && (
         <div className="results glass" id="search-results" role="listbox" aria-label="Search results">
           {state === 'error' && <div className="notice error">Search failed: {err}</div>}
-          {results && results.length === 0 && state !== 'loading' && (
+          {rooms.map(r => (
+            <button key={`room-${r.id}`} role="option" aria-selected={false} className="result" onClick={() => pickRoom(r)}>
+              <span className="cat-ic room-ic"><Icon name="door" /></span>
+              <span style={{ minWidth: 0 }}>
+                <div className="t">{r.code}{r.name ? ` · ${r.name}` : ''}</div>
+                <div className="s">Room in {r.building}{r.floor ? ` · ${r.floor}` : ''}{r.verification !== 'verified' ? ' · unverified' : ''}</div>
+              </span>
+            </button>
+          ))}
+          {results && results.length === 0 && rooms.length === 0 && state !== 'loading' && (
             <div style={{ padding: 14, color: 'var(--text-3)', fontSize: 14 }}>
               No matching places in the campus directory yet. Try another name, or <a href={`#/report?kind=missing_place&text=${encodeURIComponent(q)}`}>report a missing place</a>.
             </div>

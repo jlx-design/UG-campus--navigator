@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { db } from './lib/api';
 import { loadSession, onAuthChange, getRole, type Role } from './lib/auth';
 import { applyPrefs, loadPrefs, savePrefs, type Prefs } from './theme';
-import type { Category, Location, RouteResult, SessionUser } from './lib/types';
+import type { Category, Location, RouteResult, SessionUser , RoomHit } from './lib/types';
 import type { LatLng } from './lib/geo';
 
 export type GeoState =
@@ -18,6 +18,7 @@ interface Store {
   locations: Location[]; categories: Category[]; locState: 'loading' | 'ready' | 'error'; locError: string | null; reloadLocations: () => void;
   byId: Map<string, Location>;
   selectedId: string | null; select: (id: string | null) => void;
+  roomFocus: RoomHit | null; setRoomFocus: (r: RoomHit | null) => void;
   geo: GeoState; startGeo: () => void; stopGeo: () => void;
   route: RouteResult | null; setRoute: (r: RouteResult | null) => void;
   destId: string | null; setDestId: (id: string | null) => void;
@@ -47,6 +48,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [locState, setLocState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [locError, setLocError] = useState<string | null>(null);
   const [selectedId, select] = useState<string | null>(null);
+  const [roomFocus, setRoomFocus] = useState<RoomHit | null>(null);
   const [geo, setGeo] = useState<GeoState>({ status: 'idle' });
   const watchRef = useRef<number | null>(null);
   const [route, setRoute] = useState<RouteResult | null>(null);
@@ -139,7 +141,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const reloadLocations = useCallback(() => {
     setLocState('loading'); setLocError(null);
     Promise.all([
-      db<Location[]>('locations', 'select=id,name,category,description,lat,lng,location_context,alt_names,accessibility,source_label,source_url,verification,last_verified_at,is_published,updated_at&is_published=eq.true&order=name.asc&limit=3000'),
+      db<Location[]>('locations', 'select=id,name,category,description,lat,lng,location_context,alt_names,accessibility,source_label,source_url,verification,last_verified_at,is_published,updated_at,is_listing,is_sponsored,listing_phone,listing_website&is_published=eq.true&order=name.asc&limit=3000'),
       db<Category[]>('location_categories', 'select=*&order=sort_order.asc'),
     ]).then(([l, c]) => { setLocations(l); setCategories(c); setLocState('ready'); })
       .catch(e => { setLocState('error'); setLocError(e.message); });
@@ -181,7 +183,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const value: Store = {
     user, role, authReady, locations, categories, locState, locError, reloadLocations, byId,
-    selectedId, select, geo, startGeo, stopGeo, route, setRoute, destId, setDestId, origin, setOrigin,
+    selectedId, select, roomFocus, setRoomFocus, geo, startGeo, stopGeo, route, setRoute, destId, setDestId, origin, setOrigin,
     pickingOrigin, setPickingOrigin, navigating, setNavigating, saved, toggleSaved,
     shuttles, shuttleRoutes, showShuttles, setShowShuttles, toast, toastMsg, prefs, setPrefs, goDirections,
   };

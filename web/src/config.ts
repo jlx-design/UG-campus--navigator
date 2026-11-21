@@ -1,10 +1,12 @@
-// Public, non-secret configuration. Secrets (AI key, routing key, DB password) live only in the
-// server function's environment. Override at build time with UGNAV_* env vars (see build.mjs).
+// Public, non-secret configuration, generated per campus (white-label) from campus/<id>.json.
+// Secrets (AI key, routing key, DB password) live only in the server function's environment.
+import { CAMPUS } from './campus.gen';
 declare const __UGNAV_CONFIG__: Partial<typeof defaults> | undefined;
 
 const defaults = {
-  DATA_API_URL: 'https://ep-withered-boat-bhv75jg9.apirest.c-10.eu-central-1.aws.neon.tech/ugnav/rest/v1',
-  API_URL: 'https://br-ancient-sun-bhowhjub-api.compute.c-10.eu-central-1.aws.neon.tech',
+  DATA_API_URL: CAMPUS.api.dataApiUrl as string,
+  API_URL: CAMPUS.api.apiUrl as string,
+  VAPID_PUBLIC_KEY: CAMPUS.api.vapidPublicKey as string,
   // Vector basemaps (OpenFreeMap, OpenMapTiles schema, OSM data) and Esri World Imagery for satellite.
   STYLE_STREETS: 'https://tiles.openfreemap.org/styles/liberty',
   STYLE_DARK: 'https://tiles.openfreemap.org/styles/dark',
@@ -13,10 +15,12 @@ const defaults = {
 };
 
 export const CONFIG = { ...defaults, ...(typeof __UGNAV_CONFIG__ !== 'undefined' ? __UGNAV_CONFIG__ : {}) };
+export { CAMPUS };
+export const APP_NAME = CAMPUS.appName;
 
-// Legon campus frame ([lng, lat] order for MapLibre).
-export const CAMPUS_CENTER: [number, number] = [-0.1870, 5.6505];
-export const CAMPUS_ZOOM = 15.6;
-export const CAMPUS_BOUNDS: [[number, number], [number, number]] = [[-0.205, 5.630], [-0.170, 5.670]];
-export const MAX_BOUNDS: [[number, number], [number, number]] = [[-0.33, 5.52], [-0.05, 5.78]];
-export const SERVICE_AREA = { minLat: 5.60, maxLat: 5.70, minLng: -0.23, maxLng: -0.15 };
+// Campus frame ([lng, lat] order for MapLibre).
+export const CAMPUS_CENTER = CAMPUS.center as unknown as [number, number];
+export const CAMPUS_ZOOM = CAMPUS.zoom;
+export const CAMPUS_BOUNDS = CAMPUS.bounds as unknown as [[number, number], [number, number]];
+export const MAX_BOUNDS = CAMPUS.maxBounds as unknown as [[number, number], [number, number]];
+export const SERVICE_AREA = CAMPUS.serviceArea;

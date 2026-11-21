@@ -1,5 +1,6 @@
 // Data access: Neon Data API (PostgREST-compatible, RLS-enforced) + the server function.
 import { CONFIG } from '../config';
+import { CAMPUS } from '../config';
 import { getJwt } from './auth';
 import type { AssistantReply, RouteResult } from './types';
 
@@ -36,7 +37,7 @@ export async function db<T = any>(table: string, query = '', init: { method?: st
 
 export const rpc = <T = any>(fn: string, args: Record<string, unknown>) => db<T>(`rpc/${fn}`, '', { method: 'POST', body: args, prefer: 'return=representation' });
 
-async function fn<T>(path: string, body: unknown, timeoutMs = 20000): Promise<T> {
+export async function fn<T>(path: string, body: unknown, timeoutMs = 20000): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${CONFIG.API_URL}${path}`, { method: 'POST', headers: await headers({ 'Content-Type': 'application/json' }), body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
@@ -51,7 +52,7 @@ async function fn<T>(path: string, body: unknown, timeoutMs = 20000): Promise<T>
 export const getRoute = (from: [number, number], to: [number, number]) => fn<RouteResult>('/route', { from, to });
 export const askAssistant = (messages: { role: string; content: string }[]) => fn<AssistantReply>('/assistant', { messages }, 50000);
 const OVERPASS_QUERY = `[out:json][timeout:120];
-area["amenity"="university"]["name"~"University of Ghana",i]->.ug;
+area["amenity"="university"]["name"~"${CAMPUS.osmName}",i]->.ug;
 nwr(area.ug)["name"];
 out center tags;`;
 

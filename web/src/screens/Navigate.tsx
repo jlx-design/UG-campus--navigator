@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { APP_NAME } from '../config';
 import { useStore } from '../store';
-import { getRoute, ApiError } from '../lib/api';
+import { getRoute, ApiError, db } from '../lib/api';
+import { track } from '../lib/track';
 import { Icon, maneuverIcon } from '../components/Icon';
 import { SearchBox } from '../components/SearchBox';
 import { Notice, VerificationTag } from '../components/common';
@@ -32,7 +34,9 @@ const say = (instr: string) => instr.replace(/\s+/g, ' ').trim().replace(/\.$/, 
 
 export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<MapApi | null> }) {
   const s = useStore();
-  const { byId, destId, setDestId, route, setRoute, origin, setOrigin, geo, startGeo, navigating, setNavigating, pickingOrigin, setPickingOrigin, saved, toast } = s;
+  const { byId, destId, setDestId, route, setRoute, origin, setOrigin, geo, startGeo, navigating, setNavigating, pickingOrigin, setPickingOrigin, saved, toast, user } = s;
+  // Deep link from a reminder notification: #/navigate?to=<place id>
+  useEffect(() => { const to = new URLSearchParams(location.hash.split('?')[1] || '').get('to'); if (to && byId.has(to) && to !== destId) { setRoute(null); setDestId(to); } }, [byId.size]);
   const dest = destId ? byId.get(destId) : null;
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState<{ msg: string; code: string } | null>(null);
@@ -47,6 +51,24 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
   const askedLoc = useRef(false);
   const spoken = useRef(new Set<string>());
   const voice = useVoice();
+  // "Walk with me": time-limited live location shared by link.
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const lastShare = useRef(0);
+  const shareTrip = async () => {
+    if (!user) { toast('Sign in to share your trip with a friend', 'error'); return; }
+    try {
+      let token = shareToken;
+      if (!token) {
+        const rows = await db<any[]>('live_shares', '', { method: 'POST', prefer: 'return=representation', body: { sharer_name: (user.name || 'A friend').slice(0, 60), dest_location_id: dest?.id || null } });
+        token = rows[0].token as string; setShareToken(token); lastShare.current = 0;
+      }
+      const url = `${location.origin}${location.pathname}#/follow/${token}`;
+      const text = `Follow my walk${dest ? ` to ${dest.name}` : ''} live (ends when I arrive):`;
+      if (navigator.share) await navigator.share({ title: 'Walk with me', text, url }).catch(() => {});
+      else { await navigator.clipboard.writeText(`${text} ${url}`); toast('Link copied — send it to a friend'); }
+    } catch (e: any) { toast(e.message, 'error'); }
+  };
+  const endShare = (status: 'arrived' | 'stopped') => { if (shareToken) db('live_shares', `token=eq.${shareToken}`, { method: 'PATCH', body: { status }, prefer: 'return=minimal' }).catch(() => {}); setShareToken(null); };
 
   const originPos: LatLng | null = origin.kind === 'point' ? origin.pos : geo.status === 'ok' ? geo.pos : null;
 
@@ -62,12 +84,12 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
 
   const request = useCallback(async (from: LatLng, isReroute = false) => {
     if (!dest) return;
-    if (!inServiceArea(from)) { setState('error'); setError({ msg: 'Your starting point is outside the Legon campus area this app covers. Pick a start point on the map instead.', code: 'outside' }); return; }
+    if (!inServiceArea(from)) { setState('error'); setError({ msg: 'Your starting point is outside the campus area this app covers. Pick a start point on the map instead.', code: 'outside' }); return; }
     isReroute ? setRerouting(true) : setState('loading');
     setError(null);
     try {
       const r = await getRoute(from, [dest.lat, dest.lng]);
-      setRoute(r); setState('idle'); offCount.current = 0; lastReroute.current = isReroute ? Date.now() : 0;
+      setRoute(r); setState('idle'); offCount.current = 0; if (!isReroute) track('route', dest.id); lastReroute.current = isReroute ? Date.now() : 0;
     } catch (e: any) {
       const err = e as ApiError;
       if (isReroute) toast('Could not recalculate the route. Keep following the current route or try again.', 'error');
@@ -111,6 +133,13 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
     mapApi.current?.navCamera(pos, b);
   }, [progress, follow]);
 
+  // Keep the shared trip up to date (at most every 8 s).
+  useEffect(() => {
+    if (!shareToken || geo.status !== 'ok' || Date.now() - lastShare.current < 8000) return;
+    lastShare.current = Date.now();
+    db('live_shares', `token=eq.${shareToken}`, { method: 'PATCH', prefer: 'return=minimal', body: { lat: geo.pos[0], lng: geo.pos[1], accuracy: Math.round(geo.accuracy), heading: geo.heading, eta_s: progress ? Math.round(progress.remainingS) : null, updated_at: new Date().toISOString() } }).catch(() => {});
+  }, [geo, shareToken]);
+
   // Grey out the walked part of the line.
   useEffect(() => {
     if (!navigating || !route || !progress) { mapApi.current?.setRouteProgress(null); return; }
@@ -141,7 +170,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
     else if (toManeuver > NEAR_M) once('far', toManeuver > 120 ? `Continue for ${spokenDistance(toManeuver)}` : `In ${spokenDistance(toManeuver)}, ${instr.charAt(0).toLowerCase() + instr.slice(1)}`);
   }, [progress?.nextIdx, progress ? Math.round(progress.toManeuver / 5) : 0, arrived]);
 
-  useEffect(() => { if (arrived) setShowSteps(false); if (arrived && dest) { voice.speak(`You have arrived at ${dest.name}`, true); navigator.vibrate?.([200, 80, 200, 80, 200]); } }, [arrived]);
+  useEffect(() => { if (arrived) { setShowSteps(false); track('nav_arrive', dest?.id || ''); endShare('arrived'); } if (arrived && dest) { voice.speak(`You have arrived at ${dest.name}`, true); navigator.vibrate?.([200, 80, 200, 80, 200]); } }, [arrived]);
 
   // Off-route detection, rerouting and arrival
   useEffect(() => {
@@ -166,7 +195,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
   }, [navigating]);
 
   const start = () => {
-    setOrigin({ kind: 'gps' }); startGeo(); setArrived(false); setNavigating(true); offCount.current = 0; setFollow(true); spoken.current.clear();
+    track('nav_start', dest?.id || ''); setOrigin({ kind: 'gps' }); startGeo(); setArrived(false); setNavigating(true); offCount.current = 0; setFollow(true); spoken.current.clear();
     // Speaking inside the tap also unlocks speech on iOS for the rest of the trip.
     if (route && dest) voice.speak(`Starting route to ${dest.name}. ${fmtDuration(route.duration_s).replace('min', 'minutes')} walk. ${route.steps[0] ? say(route.steps[0].instruction) : ''}`);
     if (geo.status === 'ok' && route) mapApi.current?.navCamera(geo.pos, routeBearingAhead(route.coordinates, snapToRoute(geo.pos, route.coordinates).segmentIndex, geo.pos));
@@ -175,7 +204,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
       if (off > 60) request(geo.pos, true); // route was planned from elsewhere
     }
   };
-  const stop = () => { setNavigating(false); setArrived(false); setShowSteps(false); if ('speechSynthesis' in window) speechSynthesis.cancel(); mapApi.current?.setRouteProgress(null); mapApi.current?.fitRoute(); };
+  const stop = () => { if (shareToken) endShare(arrived ? 'arrived' : 'stopped'); setNavigating(false); setArrived(false); setShowSteps(false); if ('speechSynthesis' in window) speechSynthesis.cancel(); mapApi.current?.setRouteProgress(null); mapApi.current?.fitRoute(); };
   const clearAll = () => { setNavigating(false); setRoute(null); setDestId(null); setState('idle'); setError(null); lastKey.current = ''; setOrigin({ kind: 'gps' }); };
 
   // ── Active navigation ──
@@ -189,7 +218,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
         <div className="nav-top">
           <div className={`hud ${arrived ? 'arrived' : ''}`} role="status" aria-live="polite">
             {arrived ? (
-              <div className="maneuver"><span className="m-ic"><Icon name="arrive" /></span><div><div className="dist">You’ve arrived</div><div className="instr">{dest.name}</div></div></div>
+              <div className="maneuver"><span className="m-ic"><Icon name="arrive" /></span><div><div className="dist">{'You’ve arrived'}</div><div className="instr">{dest.name}</div></div></div>
             ) : p && p.next ? (
               <div className="maneuver">
                 <span className="m-ic"><Icon name={maneuverIcon(p.next.type)} /></span>
@@ -212,8 +241,9 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
           )}
         </div>
 
+        {shareToken && !arrived && <div className="sharing-pill glass"><span className="follow-dot live" />Sharing live location<button className="link-btn" onClick={() => endShare('stopped')}>Stop</button></div>}
         {!follow && !arrived && (
-          <button className="recenter glass" onClick={() => setFollow(true)}><Icon name="recenter" />Re-centre</button>
+          <button className="recenter glass" onClick={() => setFollow(true)}><Icon name="recenter" />{'Re-centre'}</button>
         )}
 
         {showSteps && (
@@ -235,6 +265,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
               <div className="sub">{fmtDistance(p ? p.remaining : route.distance_m)} · {clock(Date.now() + remainingS * 1000)}</div>
             </>}
           </div>
+          {!arrived && <button className="round-btn" onClick={shareTrip} aria-pressed={!!shareToken} aria-label={shareToken ? 'Sharing your trip — share link again' : 'Share my trip live with a friend'}><Icon name="share2" /></button>}
           {voice.supported && <button className="round-btn" onClick={voice.toggle} aria-pressed={voice.on} aria-label={voice.on ? 'Mute voice guidance' : 'Turn on voice guidance'}><Icon name={voice.on ? 'volume' : 'volumeOff'} /></button>}
           <button className="round-btn" onClick={() => setShowSteps(v => !v)} aria-pressed={showSteps} aria-label="All steps"><Icon name="list" /></button>
           <button className="round-btn" onClick={() => { setFollow(false); mapApi.current?.fitRoute(); }} aria-label="Route overview"><Icon name="map" /></button>
@@ -280,9 +311,9 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
         <div className="modal-back" onClick={() => setAskLoc(false)}>
           <div className="modal loc-ask" role="dialog" aria-modal="true" aria-labelledby="loc-ask-t" onClick={e => e.stopPropagation()}>
             <div className="loc-ask-ic"><Icon name="locate" /></div>
-            <h2 id="loc-ask-t">Use your current location?</h2>
-            <p>To guide you step by step to <b>{dest.name}</b>, UG Navigator needs your location. It stays on your phone and is only used while you get directions.</p>
-            <button className="btn primary block" onClick={() => { setAskLoc(false); startGeo(); }}><Icon name="locate" />Use my location</button>
+            <h2 id="loc-ask-t">{'Use your current location?'}</h2>
+            <p>To guide you step by step to <b>{dest.name}</b>, {APP_NAME} needs your location. It stays on your phone and is only used while you get directions.</p>
+            <button className="btn primary block" onClick={() => { setAskLoc(false); startGeo(); }}><Icon name="locate" />{'Use my location'}</button>
             <button className="btn block" style={{ marginTop: 8 }} onClick={() => { setAskLoc(false); setPickingOrigin(true); toast('Tap the map where you are starting from'); }}>Choose a starting point on the map</button>
           </div>
         </div>
@@ -320,7 +351,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
                 <VerificationTag v={dest.verification} />
               </div>
               <div className="row wrap" style={{ marginTop: 12 }}>
-                <button className="btn primary start-btn" onClick={start}><Icon name="navigate" />Start</button>
+                <button className="btn primary start-btn" onClick={start}><Icon name="navigate" />{'Start'}</button>
                 <button className="btn" onClick={() => setShowSteps(!showSteps)} aria-expanded={showSteps}><Icon name="list" />{showSteps ? 'Hide steps' : `${route.steps.length} steps`}</button>
               </div>
               {showSteps && (

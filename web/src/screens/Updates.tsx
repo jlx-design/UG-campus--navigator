@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { EventsList, UpdatesTabs } from './Events';
 import { db } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -53,6 +54,7 @@ export function UpdatesList() {
     <div className="screen">
       <h1>Updates</h1>
       <p className="lede">Announcements published by authorised editors, each linked to its original source.</p>
+      <UpdatesTabs active="news" />
       {user && rows && rows.length > 0 && (
         <div className="row" style={{ marginBottom: 12 }}>
           <span className="sub">{unread ? `${unread} unread` : 'All caught up'}</span><span className="spacer" />
@@ -118,5 +120,5 @@ export function UpdateDetail({ id }: { id: string }) {
 }
 
 export function UpdatesRoute({ seg }: { seg: string[] }) {
-  return seg[1] ? <UpdateDetail id={seg[1]} /> : <UpdatesList />;
+  return seg[1] === 'events' ? <EventsList /> : seg[1] ? <UpdateDetail id={seg[1]} /> : <UpdatesList />;
 }

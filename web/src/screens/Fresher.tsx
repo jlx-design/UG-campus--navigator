@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CAMPUS } from '../config';
 import { db } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -36,7 +37,7 @@ export function FresherHome() {
   const browse = ['library', 'lecture_hall', 'food', 'health', 'sports', 'hall', 'bank', 'worship'].map(s => categories.find(c => c.slug === s)).filter(Boolean) as any[];
   return (
     <div className="screen">
-      <header className="page-head"><h1>Campus Guide</h1><p className="lede">Everything about life at Legon — for students, staff and visitors.</p></header>
+      <header className="page-head"><h1>Campus Guide</h1><p className="lede">Everything about life at {CAMPUS.campusName} — for students, staff and visitors.</p></header>
       <a className="ai-hero" href="#/assistant">
         <div className="ai-orb"><Icon name="sparkle" /></div>
         <div><b>Ask Campus AI</b><span>“Where is the Balme Library?” · “How do I register?”</span></div>

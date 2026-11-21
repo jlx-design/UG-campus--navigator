@@ -1,4 +1,6 @@
 import { InstallMenuItem } from '../components/Install';
+import { OfflineMapCard } from '../components/OfflineMap';
+import { APP_NAME, CAMPUS } from '../config';
 import { useDetails, levelLabel } from './Details';
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
@@ -16,7 +18,7 @@ function AuthShell({ title, sub, children }: { title: string; sub?: string; chil
   return (
     <div className="screen auth-screen">
       <div className="auth-card glass">
-        <div className="brandmark big"><span className="logo"><Icon name="pin" /></span><span>UG Navigator</span></div>
+        <div className="brandmark big"><span className="logo"><Icon name="pin" /></span><span>{APP_NAME}</span></div>
         <h1>{title}</h1>{sub && <p className="lede">{sub}</p>}
         {children}
       </div>
@@ -174,11 +176,11 @@ export function Appearance() {
 
 export function Profile() {
   const { user, authReady, role, saved, byId, toggleSaved, toast, select, goDirections } = useStore();
-  const [aff, setAff] = useState<string>(''); const [notify, setNotify] = useState(true);
+  const [aff, setAff] = useState<string>(''); const [notify, setNotify] = useState(true); const [pushAnn, setPushAnn] = useState(true);
   const [delOpen, setDelOpen] = useState(false); const [delPw, setDelPw] = useState(''); const [delErr, setDelErr] = useState('');
   useEffect(() => {
     if (!user) return;
-    db<any[]>('profiles', `select=affiliation,notify_announcements&user_id=eq.${user.id}`).then(r => { if (r[0]) { setAff(r[0].affiliation || ''); setNotify(r[0].notify_announcements); } }).catch(() => {});
+    db<any[]>('profiles', `select=affiliation,notify_announcements,notify_push_announcements&user_id=eq.${user.id}`).then(r => { if (r[0]) { setAff(r[0].affiliation || ''); setNotify(r[0].notify_announcements); setPushAnn(r[0].notify_push_announcements); } }).catch(() => {});
   }, [user]);
   const savePref = async (patch: Record<string, unknown>) => {
     try { await db('profiles', `user_id=eq.${user!.id}`, { method: 'PATCH', body: patch, prefer: 'return=minimal' }); toast('Saved'); } catch (e: any) { toast(e.message, 'error'); }
@@ -214,6 +216,7 @@ export function Profile() {
         <InstallMenuItem />
         <a className="menu-item danger" href="#/emergency"><span className="cat-ic"><Icon name="sos" /></span><b>Emergency contacts</b><Icon name="chevron" /></a>
       </div>
+      <div style={{ marginTop: 12 }}><OfflineMapCard /></div>
       <div className="section-title">Saved places {user ? '' : '(this device)'}</div>
       {savedList.length === 0 ? <Empty icon="star" title="No saved places yet">Open a place on the map and tap Save.</Empty> : (
         <div className="list">
@@ -231,6 +234,7 @@ export function Profile() {
         <div className="section-title">Preferences</div>
         <div className="card">
 
+          <label className="toggle-row"><span>Push notification for new announcements<br /><small className="sub">Needs reminders turned on for this device (Schedule tab)</small></span><input type="checkbox" role="switch" checked={pushAnn} onChange={e => { setPushAnn(e.target.checked); savePref({ notify_push_announcements: e.target.checked }); }} /></label>
           <label className="toggle-row"><span>Unread badge for new announcements</span><input type="checkbox" role="switch" checked={notify} onChange={e => { setNotify(e.target.checked); savePref({ notify_announcements: e.target.checked }); }} /></label>
         </div>
       </>)}
@@ -292,7 +296,7 @@ export function About() {
   return (
     <div className="screen">
       <BackLink href="#/me" />
-      <header className="page-head"><h1>About UG Navigator</h1><p className="lede">Map, walking directions, timetable, shuttles, campus guide and AI assistant for the University of Ghana, Legon community.</p></header>
+      <header className="page-head"><h1>About {APP_NAME}</h1><p className="lede">Map, walking directions, timetable, shuttles, campus guide and AI assistant for the {CAMPUS.university}, {CAMPUS.campusName} community.</p></header>
       <div className="card"><h3>Where the data comes from</h3><p className="sub">Places are either <b>verified</b> by the app's editors, or imported from OpenStreetMap and clearly labelled unverified. University information links to its official source. Emergency numbers show the source they were checked against. This app is not an official University of Ghana service.</p></div>
       <div className="card"><h3>Maps & directions</h3><p className="sub">Vector maps © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL). Satellite imagery © Esri. Walking routes by openrouteservice (HeiGIT). Route accessibility (stairs, ramps) is not verified.</p></div>
       <div className="card"><h3>Shuttle tracking</h3><p className="sub">Live shuttle positions come only from authorised drivers sharing their phone's GPS in this app. A shuttle not shown is simply not sharing.</p></div>
