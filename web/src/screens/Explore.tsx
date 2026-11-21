@@ -7,6 +7,19 @@ import { SearchBox } from '../components/SearchBox';
 import { Notice, SourceLink, VerificationTag, go } from '../components/common';
 import type { MapApi } from '../components/MapView';
 import { importOsm } from '../lib/api';
+import { K } from '../lib/keys';
+
+/** A slim one-line note that floats over the map without hiding it. */
+function MapNote({ text, icon = 'info', kind, action, onClose }: { text: string; icon?: string; kind?: 'error'; action?: React.ReactNode; onClose?: () => void }) {
+  return (
+    <div className={`map-note glass ${kind || ''}`} role={kind === 'error' ? 'alert' : 'status'}>
+      <Icon name={kind === 'error' ? 'alert' : icon} />
+      <span>{text}</span>
+      {action}
+      {onClose && <button className="note-x" onClick={onClose} aria-label="Dismiss"><Icon name="close" /></button>}
+    </div>
+  );
+}
 import { fmtDate, fmtDistance, haversine } from '../lib/geo';
 
 function LayersPanel({ mapApi, onClose }: { mapApi: React.MutableRefObject<MapApi | null>; onClose: () => void }) {
@@ -36,6 +49,8 @@ function LayersPanel({ mapApi, onClose }: { mapApi: React.MutableRefObject<MapAp
 export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.MutableRefObject<MapApi | null>; filter: string | null; setFilter: (f: string | null) => void }) {
   const { categories, locations, locState, locError, reloadLocations, selectedId, select, byId, geo, startGeo, saved, toggleSaved, goDirections, setPin, role, toast } = useStore();
   const [importing, setImporting] = useState(false);
+  const [hintClosed, setHintClosed] = useState(() => { try { return !!localStorage.getItem(K('hint.empty')); } catch { return false; } });
+  const [geoClosed, setGeoClosed] = useState(false);
   const runImport = async () => {
     setImporting(true);
     try { const r = await importOsm(); toast(`Imported ${r.inserted} places from OpenStreetMap (unverified until checked)`); reloadLocations(); }
@@ -70,13 +85,12 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
             ))}
           </div>
         )}
-        {locState === 'error' && <Notice kind="error">Could not load campus places: {locError} <button className="btn small" onClick={reloadLocations}>Retry</button></Notice>}
-        {locState === 'ready' && locations.length === 0 && <Notice kind="info">
-          The campus directory has no places yet, so search is empty. You can still get step-by-step walking directions: <b>press and hold</b> (or right-click) anywhere on the map to drop a pin, then tap Directions.
-          {(role === 'editor' || role === 'admin') && <div style={{ marginTop: 8 }}><button className="btn small primary" disabled={importing} onClick={runImport}>{importing ? <span className="spinner" /> : <Icon name="download" />}Import campus buildings from OpenStreetMap</button></div>}
-        </Notice>}
-        {geo.status === 'denied' && <Notice>Location permission is blocked. You can still browse and plan routes from a point you pick on the map. To enable it, allow location for this site in your browser settings.</Notice>}
-        {geo.status === 'unavailable' && <Notice>{geo.message}</Notice>}
+        {locState === 'error' && <MapNote kind="error" text={`Couldn't load campus places. ${locError || ''}`} action={<button className="note-btn" onClick={reloadLocations}>Retry</button>} />}
+        {locState === 'ready' && locations.length === 0 && !hintClosed && <MapNote icon="pin" text="No places listed yet. Press and hold the map to get directions to any spot."
+          action={(role === 'editor' || role === 'admin') ? <button className="note-btn" disabled={importing} onClick={runImport}>{importing ? <span className="spinner" /> : 'Import buildings'}</button> : undefined}
+          onClose={() => { setHintClosed(true); try { localStorage.setItem(K('hint.empty'), '1'); } catch { /* ignore */ } }} />}
+        {geo.status === 'denied' && !geoClosed && <MapNote icon="locate" text="Location is off. Allow it in your browser settings, or pick a start point on the map." onClose={() => setGeoClosed(true)} />}
+        {geo.status === 'unavailable' && !geoClosed && <MapNote icon="locate" text={geo.message} onClose={() => setGeoClosed(true)} />}
       </div>
 
       <div className="map-controls">
