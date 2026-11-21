@@ -1,7 +1,7 @@
 // UG Campus Navigator service worker.
 // Caches only the static app shell (same-origin files) and the pinned Leaflet library.
 // API, auth, routing, AI and map-tile requests always go to the network and are never cached here.
-const VERSION = 'mwq51v2c';
+const VERSION = 'mwq5wwdo';
 const SHELL = `ugnav-shell-${VERSION}`;
 // Paths are relative to the SW's own location, so the app works at a domain root or under a sub-path (GitHub Pages).
 const BASE = new URL('./', self.location).pathname;
