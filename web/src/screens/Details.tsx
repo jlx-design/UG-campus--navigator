@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { track } from '../lib/track';
 import { db } from '../lib/api';
+import { CAMPUS } from '../config';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
 import { BackLink, Loading, Notice } from '../components/common';
@@ -37,7 +39,7 @@ export function MyDetails() {
     if (phone && !/^\+?[0-9 ()-]{6,20}$/.test(phone)) { setErr('Emergency contact phone should contain only digits, spaces, +, ( ) or -.'); setBusy(false); return; }
     const body = { ...d, emergency_contact_phone: phone, admission_year: d.admission_year ? Number(d.admission_year) : null, graduation_year: d.graduation_year ? Number(d.graduation_year) : null,
       hall_name: d.hall_location_id ? null : d.hall_name };
-    try { await db('profiles', `user_id=eq.${user.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); toast('Details saved'); }
+    try { await db('profiles', `user_id=eq.${user.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); toast('Details saved'); track('details_saved'); }
     catch (x: any) { setErr(x.message); } finally { setBusy(false); }
   };
   const student = d.affiliation === 'student';
@@ -45,7 +47,7 @@ export function MyDetails() {
     <form className="screen" onSubmit={save}>
       <BackLink href="#/me" label="Me" />
       <header className="page-head"><h1>My details</h1><p className="lede">Helps the app personalise your timetable, guide and AI answers. Everything is optional and only visible to you.</p></header>
-      <div className="privacy-note"><Icon name="shield" /><span>We never ask for your <b>student ID</b>, <b>index number</b> or passwords for UG systems. Don't type them anywhere in this app.</span></div>
+      <div className="privacy-note"><Icon name="shield" /><span>We never ask for your <b>student ID</b>, <b>index number</b> or passwords for {CAMPUS.short} systems. Don't type them anywhere in this app.</span></div>
 
       <div className="section-title">About you</div>
       <div className="card">

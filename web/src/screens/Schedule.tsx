@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { track } from '../lib/track';
 import { db } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -16,9 +17,9 @@ const COLORS = ['#2563eb', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#ca8a04'
 const todayIdx = () => ((new Date().getDay() + 6) % 7) + 1; // 1 = Monday
 const hm = (t: string) => t.slice(0, 5);
 const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-const fmt12 = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+export const fmt12 = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
 
-function nextSession(sessions: Session[]) {
+export function nextSession(sessions: Session[]) {
   const now = new Date(); const d = todayIdx(); const mins = now.getHours() * 60 + now.getMinutes();
   let best: { s: Session; inDays: number; startsIn: number; live: boolean } | null = null;
   for (const s of sessions) {
@@ -30,7 +31,7 @@ function nextSession(sessions: Session[]) {
   }
   return best;
 }
-const until = (m: number) => (m < 60 ? `in ${m} min` : m < 1440 ? `in ${Math.floor(m / 60)} h ${m % 60} min` : `in ${Math.round(m / 1440)} day${Math.round(m / 1440) > 1 ? 's' : ''}`);
+export const until = (m: number) => (m < 60 ? `in ${m} min` : m < 1440 ? `in ${Math.floor(m / 60)} h ${m % 60} min` : `in ${Math.round(m / 1440)} day${Math.round(m / 1440) > 1 ? 's' : ''}`);
 
 export function Schedule() {
   const { user, authReady, byId, goDirections, select, toast } = useStore();
@@ -76,7 +77,7 @@ export function Schedule() {
     try {
       if (c.id) await db('courses', `id=eq.${c.id}`, { method: 'PATCH', body, prefer: 'return=minimal' });
       else await db('courses', '', { method: 'POST', body, prefer: 'return=minimal' });
-      setEditCourse(null); load(); toast('Course saved');
+      setEditCourse(null); load(); toast('Course saved'); track('course_add');
     } catch (e: any) { toast(e.message, 'error'); }
   };
   const deleteCourse = async (c: Course) => {
@@ -91,7 +92,7 @@ export function Schedule() {
     try {
       if (s.id) await db('class_sessions', `id=eq.${s.id}`, { method: 'PATCH', body: { ...base, weekday: s.weekday }, prefer: 'return=minimal' });
       else await db('class_sessions', '', { method: 'POST', body: days.map(weekday => ({ ...base, weekday })), prefer: 'return=minimal' });
-      setEditSession(null); load(); toast('Class time saved');
+      setEditSession(null); load(); toast('Class time saved'); track('class_add');
     } catch (e: any) { toast(e.message, 'error'); }
   };
   const deleteSession = async (s: Session) => { try { await db('class_sessions', `id=eq.${s.id}`, { method: 'DELETE', prefer: 'return=minimal' }); load(); } catch (e: any) { toast(e.message, 'error'); } };

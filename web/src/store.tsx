@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { K } from './lib/keys';
 import { db } from './lib/api';
 import { loadSession, onAuthChange, getRole, type Role } from './lib/auth';
 import { applyPrefs, loadPrefs, savePrefs, type Prefs } from './theme';
@@ -30,12 +31,15 @@ interface Store {
   toast: (msg: string, kind?: 'ok' | 'error') => void; toastMsg: { msg: string; kind: string; id: number } | null;
   prefs: Prefs; setPrefs: (p: Partial<Prefs>) => void;
   goDirections: (id: string) => void;
+  /** A dropped pin: lets people get walking directions to any point, even before the directory has places. */
+  pin: LatLng | null; setPin: (p: LatLng | null) => void;
 }
 
+export const PIN_ID = 'pin';
 const Ctx = createContext<Store | null>(null);
 export const useStore = () => { const s = useContext(Ctx); if (!s) throw new Error('store missing'); return s; };
 
-const GUEST_SAVED_KEY = 'ugnav.guest_saved';
+const GUEST_SAVED_KEY = K('guest_saved');
 const readLS = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
 const writeLS = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
 
@@ -147,7 +151,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       .catch(e => { setLocState('error'); setLocError(e.message); });
   }, []);
   useEffect(() => { reloadLocations(); }, [reloadLocations, role]);
-  const byId = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
+  const [pin, setPin] = useState<LatLng | null>(null);
+  const byId = useMemo(() => {
+    const m = new Map(locations.map(l => [l.id, l]));
+    if (pin) m.set(PIN_ID, { id: PIN_ID, name: 'Dropped pin', category: 'other', description: null, lat: pin[0], lng: pin[1], location_context: `${pin[0].toFixed(5)}, ${pin[1].toFixed(5)}`, alt_names: [],
+      accessibility: null, source_label: 'a point you chose on the map', source_url: null, verification: 'unverified', last_verified_at: null, is_published: true, updated_at: '' });
+    return m;
+  }, [locations, pin]);
 
   // ── Live shuttles: poll every 10 s while the page is visible ──
   useEffect(() => {
@@ -185,7 +195,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     user, role, authReady, locations, categories, locState, locError, reloadLocations, byId,
     selectedId, select, roomFocus, setRoomFocus, geo, startGeo, stopGeo, route, setRoute, destId, setDestId, origin, setOrigin,
     pickingOrigin, setPickingOrigin, navigating, setNavigating, saved, toggleSaved,
-    shuttles, shuttleRoutes, showShuttles, setShowShuttles, toast, toastMsg, prefs, setPrefs, goDirections,
+    shuttles, shuttleRoutes, showShuttles, setShowShuttles, toast, toastMsg, prefs, setPrefs, goDirections, pin, setPin,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

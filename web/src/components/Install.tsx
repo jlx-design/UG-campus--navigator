@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { K } from '../lib/keys';
 import { APP_NAME } from '../config';
 import { Icon } from './Icon';
 import { canPrompt, installAvailable, isIOS, isIOSNonSafari, isStandalone, onInstallChange, promptInstall } from '../lib/install';
 
-const DISMISS_KEY = 'ugnav.install.dismissed';
+const DISMISS_KEY = K('install.dismissed');
 const SNOOZE_MS = 7 * 24 * 3600 * 1000;
 
 export function useInstall() {

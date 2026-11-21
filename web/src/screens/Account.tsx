@@ -1,6 +1,7 @@
 import { InstallMenuItem } from '../components/Install';
 import { OfflineMapCard } from '../components/OfflineMap';
 import { APP_NAME, CAMPUS } from '../config';
+import { switchCampusHref } from '../lib/campusSwitch';
 import { useDetails, levelLabel } from './Details';
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
@@ -19,8 +20,10 @@ function AuthShell({ title, sub, children }: { title: string; sub?: string; chil
     <div className="screen auth-screen">
       <div className="auth-card glass">
         <div className="brandmark big"><span className="logo"><Icon name="pin" /></span><span>{APP_NAME}</span></div>
+        <div className="campus-line"><Icon name="campus" /><span>{CAMPUS.university}</span>{switchCampusHref() && <a href={switchCampusHref()!}>Not your campus?</a>}</div>
         <h1>{title}</h1>{sub && <p className="lede">{sub}</p>}
         {children}
+        <p className="hint" style={{ marginTop: 12 }}>Each campus has its own separate account and data.</p>
       </div>
     </div>
   );
@@ -214,6 +217,8 @@ export function Profile() {
         <a className="menu-item" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><b>GPA calculator</b><Icon name="chevron" /></a>
         <a className="menu-item" href="#/shuttles"><span className="cat-ic"><Icon name="bus" /></span><b>Shuttles{role === 'driver' ? ' · Driver mode' : ''}</b><Icon name="chevron" /></a>
         <InstallMenuItem />
+        <a className="menu-item" href="#/welcome"><span className="cat-ic"><Icon name="user" /></span><b>I am a…</b><span className="sub">Fresher, continuing, staff, visitor</span><Icon name="chevron" /></a>
+        {switchCampusHref() && <a className="menu-item" href={switchCampusHref()!}><span className="cat-ic"><Icon name="campus" /></span><b>Switch campus</b><span className="sub">{CAMPUS.short} · UG, KNUST, UCC</span><Icon name="chevron" /></a>}
         <a className="menu-item danger" href="#/emergency"><span className="cat-ic"><Icon name="sos" /></span><b>Emergency contacts</b><Icon name="chevron" /></a>
       </div>
       <div style={{ marginTop: 12 }}><OfflineMapCard /></div>
@@ -297,7 +302,8 @@ export function About() {
     <div className="screen">
       <BackLink href="#/me" />
       <header className="page-head"><h1>About {APP_NAME}</h1><p className="lede">Map, walking directions, timetable, shuttles, campus guide and AI assistant for the {CAMPUS.university}, {CAMPUS.campusName} community.</p></header>
-      <div className="card"><h3>Where the data comes from</h3><p className="sub">Places are either <b>verified</b> by the app's editors, or imported from OpenStreetMap and clearly labelled unverified. University information links to its official source. Emergency numbers show the source they were checked against. This app is not an official University of Ghana service.</p></div>
+      <div className="card"><h3>Where the data comes from</h3><p className="sub">Places are either <b>verified</b> by the app's editors, or imported from OpenStreetMap and clearly labelled unverified. University information links to its official source. Emergency numbers show the source they were checked against. This app is not an official {CAMPUS.university} service.</p></div>
+      <div className="card"><h3>Usage statistics</h3><p className="sub">To show the team how the app is used, it counts actions such as opening the app, planning a route or adding a course. Each count carries a random install ID created on this device, your device type (Android, iPhone, computer) and whether the app is installed. When you're signed in, that ID is linked to your account so active users can be counted. Search text, your location and your personal details are never sent with these counts.</p></div>
       <div className="card"><h3>Maps & directions</h3><p className="sub">Vector maps © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL). Satellite imagery © Esri. Walking routes by openrouteservice (HeiGIT). Route accessibility (stairs, ramps) is not verified.</p></div>
       <div className="card"><h3>Shuttle tracking</h3><p className="sub">Live shuttle positions come only from authorised drivers sharing their phone's GPS in this app. A shuttle not shown is simply not sharing.</p></div>
       <div className="card"><h3>Privacy</h3><p className="sub">Your location is used on your device and never stored, except for drivers who choose to share a vehicle's position. Your timetable and saved places are private to your account. Assistant questions are sent to an AI provider to generate answers and are not saved to your account.</p></div>

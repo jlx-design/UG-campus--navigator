@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { K } from '../lib/keys';
 import { APP_NAME } from '../config';
 import { useStore } from '../store';
 import { getRoute, ApiError, db } from '../lib/api';
@@ -16,7 +17,7 @@ const ARRIVE_M = 20;
 const POOR_ACCURACY_M = 60;
 const NEAR_M = 40;                // "In 40 metres, turn left"
 const NOW_M = 12;                 // "Turn left now"
-const VOICE_KEY = 'ugnav.voice.v1';
+const VOICE_KEY = K('voice.v1');
 
 /** Spoken guidance via the browser's built-in speech engine (works offline on most phones). */
 function useVoice() {
@@ -59,13 +60,14 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
     try {
       let token = shareToken;
       if (!token) {
-        const rows = await db<any[]>('live_shares', '', { method: 'POST', prefer: 'return=representation', body: { sharer_name: (user.name || 'A friend').slice(0, 60), dest_location_id: dest?.id || null } });
+        const rows = await db<any[]>('live_shares', '', { method: 'POST', prefer: 'return=representation', body: { sharer_name: (user.name || 'A friend').slice(0, 60), dest_location_id: dest && dest.id !== 'pin' ? dest.id : null } });
         token = rows[0].token as string; setShareToken(token); lastShare.current = 0;
       }
       const url = `${location.origin}${location.pathname}#/follow/${token}`;
       const text = `Follow my walk${dest ? ` to ${dest.name}` : ''} live (ends when I arrive):`;
       if (navigator.share) await navigator.share({ title: 'Walk with me', text, url }).catch(() => {});
       else { await navigator.clipboard.writeText(`${text} ${url}`); toast('Link copied — send it to a friend'); }
+      track('share_trip');
     } catch (e: any) { toast(e.message, 'error'); }
   };
   const endShare = (status: 'arrived' | 'stopped') => { if (shareToken) db('live_shares', `token=eq.${shareToken}`, { method: 'PATCH', body: { status }, prefer: 'return=minimal' }).catch(() => {}); setShareToken(null); };
@@ -195,7 +197,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
   }, [navigating]);
 
   const start = () => {
-    track('nav_start', dest?.id || ''); setOrigin({ kind: 'gps' }); startGeo(); setArrived(false); setNavigating(true); offCount.current = 0; setFollow(true); spoken.current.clear();
+    track('nav_start', dest?.id || ''); setShowSteps(false); setOrigin({ kind: 'gps' }); startGeo(); setArrived(false); setNavigating(true); offCount.current = 0; setFollow(true); spoken.current.clear();
     // Speaking inside the tap also unlocks speech on iOS for the rest of the trip.
     if (route && dest) voice.speak(`Starting route to ${dest.name}. ${fmtDuration(route.duration_s).replace('min', 'minutes')} walk. ${route.steps[0] ? say(route.steps[0].instruction) : ''}`);
     if (geo.status === 'ok' && route) mapApi.current?.navCamera(geo.pos, routeBearingAhead(route.coordinates, snapToRoute(geo.pos, route.coordinates).segmentIndex, geo.pos));
@@ -304,7 +306,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
         )}
         {dest && origin.kind === 'gps' && geo.status === 'denied' && <Notice>Location permission is blocked, so the route can’t start from where you are. Tap “Pick on map” to choose a starting point, or allow location for this site in your browser settings.</Notice>}
         {dest && origin.kind === 'gps' && geo.status === 'unavailable' && <Notice>{geo.message} You can tap “Pick on map” instead.</Notice>}
-        {dest && dest.verification !== 'verified' && <Notice kind="info">This destination’s position comes from {dest.source_label} and is not yet verified by the app’s editors.</Notice>}
+        {dest && dest.id !== 'pin' && dest.verification !== 'verified' && <Notice kind="info">This destination’s position comes from {dest.source_label} and is not yet verified by the app’s editors.</Notice>}
       </div>
 
       {askLoc && dest && (
@@ -322,7 +324,7 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
       {!dest && (
         <section className="sheet glass">
           <h2>Walking directions</h2>
-          <p>Search for a destination above, or pick a place on the Explore map and tap Directions. Routes come from a pedestrian routing service using OpenStreetMap paths.</p>
+          <p>Search for a destination above, or pick a place on the Explore map and tap Directions. You can also <b>press and hold</b> anywhere on the map to drop a pin and walk there. Routes follow OpenStreetMap footpaths and roads.</p>
         </section>
       )}
 
@@ -348,15 +350,15 @@ export function NavigateOverlay({ mapApi }: { mapApi: React.MutableRefObject<Map
                   <div className="sub">{fmtDistance(route.distance_m)} walk · {dest.name}</div>
                 </div>
                 <span className="spacer" />
-                <VerificationTag v={dest.verification} />
+                {dest.id !== 'pin' && <VerificationTag v={dest.verification} />}
               </div>
               <div className="row wrap" style={{ marginTop: 12 }}>
                 <button className="btn primary start-btn" onClick={start}><Icon name="navigate" />{'Start'}</button>
-                <button className="btn" onClick={() => setShowSteps(!showSteps)} aria-expanded={showSteps}><Icon name="list" />{showSteps ? 'Hide steps' : `${route.steps.length} steps`}</button>
+                {route.steps.length > 3 && <button className="btn" onClick={() => setShowSteps(!showSteps)} aria-expanded={showSteps}><Icon name="list" />{showSteps ? 'Fewer steps' : `All ${route.steps.length} steps`}</button>}
               </div>
-              {showSteps && (
-                <ol className="steps">
-                  {route.steps.map((st, i) => (
+              {route.steps.length > 0 && (
+                <ol className="steps" aria-label="Step-by-step directions">
+                  {(showSteps ? route.steps : route.steps.slice(0, 3)).map((st, i) => (
                     <li key={i}><Icon name={maneuverIcon(st.type)} /><span>{st.instruction}</span><span className="d">{st.distance_m > 0 ? fmtDistance(st.distance_m) : ''}</span></li>
                   ))}
                 </ol>

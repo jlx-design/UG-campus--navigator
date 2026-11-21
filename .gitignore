@@ -1,7 +1,2 @@
-node_modules/
-web/node_modules
-web/dist/
-.netlify/
-.env
-*.log
-web/src/campus.gen.ts
+src/campus.gen.ts
+web/site/

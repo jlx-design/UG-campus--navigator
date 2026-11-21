@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { track } from '../lib/track';
 import { Icon } from './Icon';
 import { clearOffline, downloadCampusMap, offlineStatus } from '../lib/offline';
 
@@ -9,7 +10,7 @@ export function OfflineMapCard() {
   useEffect(() => { refresh(); }, []);
   const go = async () => {
     setMsg(''); setProg([0, 1]);
-    try { const r = await downloadCampusMap((d, t) => setProg([d, t])); setMsg(r.failed ? `Saved, but ${r.failed} pieces failed — try again on a better connection.` : 'Campus map saved for offline use.'); }
+    try { const r = await downloadCampusMap((d, t) => setProg([d, t])); setMsg(r.failed ? `Saved, but ${r.failed} pieces failed — try again on a better connection.` : 'Campus map saved for offline use.'); if (!r.failed) track('offline_download'); }
     catch (e: any) { setMsg(e.message || 'Download failed.'); } finally { setProg(null); refresh(); }
   };
   return (

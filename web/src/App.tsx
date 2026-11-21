@@ -6,6 +6,16 @@ import { ExploreOverlay } from './screens/Explore';
 import { NavigateOverlay } from './screens/Navigate';
 import { db } from './lib/api';
 import { track } from './lib/track';
+import { K } from './lib/keys';
+import { readLocalAudience } from './lib/audience';
+
+// First run: ask who the person is before anything else (campus is chosen at the front door).
+// Deep links (shared trips, password resets, places) are never interrupted.
+function needsWelcome() {
+  try { if (localStorage.getItem(K('welcome.seen')) || readLocalAudience()) return false; } catch { return false; }
+  const h = location.hash; return !h || h === '#/' || h === '#/map';
+}
+if (needsWelcome()) history.replaceState(null, '', '#/welcome');
 
 // Non-map screens are code-split so the map opens first.
 const Fresher = lazy(() => import('./screens/Fresher').then(m => ({ default: m.FresherRoute })));
@@ -20,6 +30,7 @@ const Admin = lazy(() => import('./screens/Admin').then(m => ({ default: m.Admin
 const Schedule = lazy(() => import('./screens/Schedule').then(m => ({ default: m.Schedule })));
 const Emergency = lazy(() => import('./screens/Emergency').then(m => ({ default: m.Emergency })));
 const Shuttles = lazy(() => import('./screens/Shuttles').then(m => ({ default: m.Shuttles })));
+const Welcome = lazy(() => import('./screens/Welcome').then(m => ({ default: m.Welcome })));
 
 function useHash() {
   const [h, setH] = useState(location.hash || '#/map');
@@ -51,7 +62,7 @@ function useUnreadCount() {
 const TABS: [string, string, string][] = [['map', 'Map', 'map'], ['schedule', 'Schedule', 'calendar'], ['guide', 'Guide', 'book'], ['updates', 'Updates', 'bell'], ['me', 'Me', 'user']];
 const TAB_OF: Record<string, string> = {
   '': 'map', map: 'map', follow: 'map', explore: 'map', navigate: 'map', schedule: 'schedule', gpa: 'schedule', details: 'me', guide: 'guide', fresher: 'guide', assistant: 'guide', emergency: 'guide', shuttles: 'guide',
-  updates: 'updates', me: 'me', profile: 'me', login: 'me', register: 'me', 'forgot-password': 'me', 'reset-password': 'me', about: 'me', report: 'me', admin: 'me', appearance: 'me',
+  updates: 'updates', welcome: 'guide', me: 'me', profile: 'me', login: 'me', register: 'me', 'forgot-password': 'me', 'reset-password': 'me', about: 'me', report: 'me', admin: 'me', appearance: 'me',
 };
 
 function Shell() {
@@ -83,6 +94,7 @@ function Shell() {
   else if (top === 'details') page = <MyDetails />;
   else if (top === 'emergency') page = <Emergency />;
   else if (top === 'shuttles') page = <Shuttles />;
+  else if (top === 'welcome') page = <Welcome />;
   else if (top === 'admin') page = <Admin tab={(seg[1] as any) || 'overview'} />;
   else if (!isMap) page = <Account top={top === 'profile' ? 'me' : top} params={params} />;
 
@@ -94,7 +106,7 @@ function Shell() {
       {top === 'navigate' && <NavigateOverlay mapApi={mapApi} />}
       {top === 'follow' && <Suspense fallback={null}><Follow mapApi={mapApi} token={seg[1] || ''} /></Suspense>}
       {page && <Suspense fallback={<div className="screen"><span className="spinner" /></div>}><div className="page" key={top}>{page}</div></Suspense>}
-      {!(navigating && top === 'navigate') && (
+      {!(navigating && top === 'navigate') && top !== 'welcome' && (
         <nav className="bottom-nav glass" aria-label="Main">
           {TABS.map(([k, label, icon]) => (
             <a key={k} href={`#/${k}`} aria-current={activeTab === k ? 'page' : undefined}>
@@ -104,7 +116,7 @@ function Shell() {
           ))}
         </nav>
       )}
-      {!isMap && top !== 'assistant' && !['login', 'register', 'forgot-password', 'reset-password'].includes(top) && (
+      {!isMap && top !== 'assistant' && top !== 'welcome' && !['login', 'register', 'forgot-password', 'reset-password'].includes(top) && (
         <a href="#/assistant" className="ai-fab" aria-label="Ask Campus AI"><Icon name="sparkle" /></a>
       )}
       {toastMsg && <div key={toastMsg.id} className={`toast glass ${toastMsg.kind}`} role="status">{toastMsg.msg}</div>}

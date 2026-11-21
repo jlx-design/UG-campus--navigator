@@ -51,8 +51,8 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
   const [failed, setFailed] = useState<string | null>(null);
   const styleName = resolvedMapStyle(prefs);
   const routeCoords = useRef<number[][]>([]);
-  const latest = useRef({ pickingOrigin, select, setOrigin, setPickingOrigin });
-  latest.current = { pickingOrigin, select, setOrigin, setPickingOrigin };
+  const latest = useRef({ pickingOrigin, select, setOrigin, setPickingOrigin, setPin: s.setPin, navigating });
+  latest.current = { pickingOrigin, select, setOrigin, setPickingOrigin, setPin: s.setPin, navigating };
 
   // ── Create once ──
   useEffect(() => {
@@ -72,6 +72,13 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
       const f = m.queryRenderedFeatures(e.point, { layers: ['ug-places', 'ug-places-label'].filter(id => m.getLayer(id)) })[0];
       if (f) L.select(f.properties.id);
     });
+    // Long-press (touch) or right-click drops a pin you can get walking directions to.
+    const dropPin = (ll: any) => { const L = latest.current; if (L.navigating || L.pickingOrigin) return; L.setPin([ll.lat, ll.lng]); L.select('pin'); navigator.vibrate?.(30); };
+    m.on('contextmenu', (e: any) => dropPin(e.lngLat));
+    let press: any = null; let startPt: any = null;
+    m.on('touchstart', (e: any) => { clearTimeout(press); if (e.originalEvent?.touches?.length !== 1) return; startPt = e.point; const ll = e.lngLat; press = setTimeout(() => dropPin(ll), 550); });
+    m.on('touchmove', (e: any) => { if (startPt && Math.hypot(e.point.x - startPt.x, e.point.y - startPt.y) > 10) clearTimeout(press); });
+    m.on('touchend', () => clearTimeout(press)); m.on('touchcancel', () => clearTimeout(press)); m.on('movestart', (e: any) => { if (e?.originalEvent) clearTimeout(press); });
     m.on('mouseenter', 'ug-places', () => { m.getCanvas().style.cursor = 'pointer'; });
     m.on('mouseleave', 'ug-places', () => { m.getCanvas().style.cursor = ''; });
     const userMove = { cb: null as null | (() => void) };

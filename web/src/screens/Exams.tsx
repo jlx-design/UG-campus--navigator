@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { track } from '../lib/track';
 import { db } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -9,7 +10,7 @@ import { icsFile } from '../lib/ics';
 
 interface Exam { id: string; course_code: string; course_title: string | null; starts_at: string; duration_min: number; location_id: string | null; venue_text: string | null; seat_note: string | null }
 const pad = (n: number) => String(n).padStart(2, '0');
-function countdown(ms: number) {
+export function countdown(ms: number) {
   if (ms <= 0) return 'Now';
   const d = Math.floor(ms / 864e5), h = Math.floor((ms % 864e5) / 36e5), m = Math.floor((ms % 36e5) / 6e4);
   return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m} min`;
@@ -32,7 +33,7 @@ export function Exams() {
     const starts = new Date(`${e.date}T${e.time}`); if (isNaN(starts.getTime())) return toast('Check the date and time', 'error');
     const body = { course_code: e.course_code.trim().toUpperCase(), course_title: e.course_title?.trim() || null, starts_at: starts.toISOString(), duration_min: Number(e.duration_min) || 120,
       location_id: e.location_id || null, venue_text: e.location_id ? null : e.venue_text?.trim() || null, seat_note: e.seat_note?.trim() || null };
-    try { if (e.id) await db('exams', `id=eq.${e.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('exams', '', { method: 'POST', body, prefer: 'return=minimal' }); setEdit(null); load(); toast('Exam saved'); }
+    try { if (e.id) await db('exams', `id=eq.${e.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('exams', '', { method: 'POST', body, prefer: 'return=minimal' }); setEdit(null); load(); toast('Exam saved'); track('exam_add'); }
     catch (x: any) { toast(x.message, 'error'); }
   };
   const del = async (e: Exam) => { if (!confirm(`Delete ${e.course_code}?`)) return; await db('exams', `id=eq.${e.id}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(x => toast(x.message, 'error')); load(); };

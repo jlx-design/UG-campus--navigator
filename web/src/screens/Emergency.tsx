@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { track } from '../lib/track';
+import { K } from '../lib/keys';
+import { CAMPUS } from '../config';
 import { db } from '../lib/api';
 import { useStore } from '../store';
 import { Icon } from '../components/Icon';
@@ -7,7 +10,7 @@ import { fmtDate } from '../lib/geo';
 import { useDetails } from './Details';
 
 interface Contact { id: string; name: string; category: string; phone: string | null; is_emergency: boolean; description: string | null; location_id: string | null; source_label: string; source_url: string; checked_at: string }
-const CACHE = 'ugnav.emergency.v1';
+const CACHE = K('emergency.v1');
 
 export function Emergency() {
   const { byId, goDirections, geo, startGeo } = useStore();
@@ -45,7 +48,7 @@ export function Emergency() {
         <div className="sos-grid">
           {urgent.map(c => (
             <div key={c.id} className={`sos-card ${c.category}`}>
-              <div className="row"><b>{c.name}</b><span className="spacer" />{c.phone && <a className="call-btn" href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} aria-label={`Call ${c.name} ${c.phone}`}><Icon name="phone" />{c.phone}</a>}</div>
+              <div className="row"><b>{c.name}</b><span className="spacer" />{c.phone && <a className="call-btn" onClick={() => track('emergency_call')} href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} aria-label={`Call ${c.name} ${c.phone}`}><Icon name="phone" />{c.phone}</a>}</div>
               {c.description && <p>{c.description}</p>}
               <div className="row wrap sub">
                 {c.location_id && byId.get(c.location_id) && <button className="link-btn" onClick={() => goDirections(c.location_id!)}>Directions</button>}
@@ -64,12 +67,12 @@ export function Emergency() {
       {info.length > 0 && (<>
         <div className="section-title">Information lines (not emergency)</div>
         <div className="list">{info.map(c => (
-          <div key={c.id} className="card"><div className="row"><b style={{ flex: 1 }}>{c.name}</b>{c.phone && <a className="btn small" href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" />{c.phone}</a>}</div>
+          <div key={c.id} className="card"><div className="row"><b style={{ flex: 1 }}>{c.name}</b>{c.phone && <a className="btn small" onClick={() => track('emergency_call')} href={`tel:${c.phone.replace(/[^\d+]/g, '')}`}><Icon name="phone" />{c.phone}</a>}</div>
             {c.description && <p className="sub">{c.description}</p>}
             <span className="sub">Source: <a href={c.source_url} target="_blank" rel="noopener noreferrer">{c.source_label}</a></span></div>
         ))}</div>
       </>)}
-      <p className="hint" style={{ marginTop: 16 }}>Campus security and counselling lines will be added once confirmed from official UG sources. Know a verified number? <a href="#/report?kind=wrong_info">Tell us</a>.</p>
+      <p className="hint" style={{ marginTop: 16 }}>Campus security and counselling lines will be added once confirmed from official {CAMPUS.short} sources. Know a verified number? <a href="#/report?kind=wrong_info">Tell us</a>.</p>
     </div>
   );
 }

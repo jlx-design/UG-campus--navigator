@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import MIGRATIONS from './migrations.json' with { type: 'json' };
 // UG Campus Navigator — server API (Neon Function, Node.js 24, no dependencies).
 // Endpoints:
 //   GET  /health                 → service + configuration status (no secrets)
@@ -547,6 +548,34 @@ async function health(req) {
   });
 }
 
+// ───────────── One-time database setup for a new campus deployment ─────────────
+// Enabled only while MIGRATE_KEY is set. Each migration file runs as one transaction and is recorded, so re-runs are no-ops.
+async function sqlBatch(queries) {
+  const res = await fetch(`https://${dbHost}/sql`, { method: 'POST', signal: AbortSignal.timeout(60000),
+    headers: { 'Content-Type': 'application/json', 'Neon-Connection-String': DB_URL, 'Neon-Array-Mode': 'false' },
+    body: JSON.stringify({ queries: queries.map(q => ({ query: q, params: [] })) }) });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`db ${res.status}: ${body.message || 'batch failed'}`);
+  return body;
+}
+async function migrate(req) {
+  const key = new URL(req.url).searchParams.get('key');
+  if (!env.MIGRATE_KEY || key !== env.MIGRATE_KEY) return fail(req, 404, 'not_found', 'Unknown endpoint.');
+  await sql(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz not null default now())`);
+  await sql(`alter table public.schema_migrations enable row level security`);
+  const done = new Set((await sql(`select name from public.schema_migrations`)).map(r => r.name));
+  const out = [];
+  for (const [name, stmts] of Object.entries(MIGRATIONS)) {
+    if (done.has(name)) { out.push({ name, status: 'already applied' }); continue; }
+    try { await sqlBatch([...stmts, `insert into public.schema_migrations(name) values ('${name.replace(/'/g, '')}')`]); out.push({ name, status: 'applied', statements: stmts.length }); }
+    catch (e) { out.push({ name, status: 'failed', error: String(e.message).slice(0, 400) }); break; }
+  }
+  // Campus-specific seed rows from the original UG deployment don't belong to other campuses.
+  if ((env.CAMPUS_ID || 'ug') !== 'ug') await sql(`delete from public.emergency_contacts where source_url like '%ug.edu.gh%' or source_url like '%ugmedicalcentre%'`).catch(() => {});
+  if (env.ADMIN_EMAIL) await sql(`insert into public.admin_invites(email, role) values (lower($1), 'admin') on conflict (email) do update set role = 'admin'`, [env.ADMIN_EMAIL]).catch(() => {});
+  return json(req, 200, { results: out });
+}
+
 // ───────────── Web Push (RFC 8291 aes128gcm + RFC 8292 VAPID), no dependencies ─────────────
 const toB64u = buf => Buffer.from(buf).toString('base64url');
 const fromB64u = str => Buffer.from(str, 'base64url');
@@ -662,6 +691,7 @@ export default {
       if (req.method === 'POST' && path === '/admin/import-osm') return await importOsm(req);
       if ((req.method === 'POST' || req.method === 'GET') && path === '/cron/reminders') return await cronReminders(req);
       if (req.method === 'POST' && path === '/push/test') return await pushTest(req);
+      if (req.method === 'GET' && path === '/admin/migrate') return await migrate(req);
       return fail(req, 404, 'not_found', 'Unknown endpoint.');
     } catch (e) {
       console.error('request failed', path, e?.message);

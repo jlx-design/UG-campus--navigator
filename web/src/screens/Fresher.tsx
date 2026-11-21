@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { track } from '../lib/track';
+import { K } from '../lib/keys';
 import { CAMPUS } from '../config';
 import { db } from '../lib/api';
 import { useStore } from '../store';
@@ -6,9 +8,10 @@ import { Icon } from '../components/Icon';
 import { BackLink, Empty, Loading, Notice, SourceLink, VerificationTag, go } from '../components/common';
 import type { ChecklistItem, FresherResource } from '../lib/types';
 import { fmtDate } from '../lib/geo';
+import { ForYou } from './ForYou';
 
 export const SECTIONS: { key: string; label: string; icon: string; blurb: string }[] = [
-  { key: 'getting_started', label: 'New to UG', icon: 'sparkle', blurb: 'First steps for freshers' },
+  { key: 'getting_started', label: `New to ${CAMPUS.short}`, icon: 'sparkle', blurb: 'First steps for freshers' },
   { key: 'registration', label: 'Registration', icon: 'edit', blurb: 'Verified registration guidance' },
   { key: 'orientation', label: 'Orientation', icon: 'navigate', blurb: 'Orientation information' },
   { key: 'academic', label: 'Academic resources', icon: 'book', blurb: 'Libraries, portals, learning' },
@@ -17,8 +20,8 @@ export const SECTIONS: { key: string; label: string; icon: string; blurb: string
   { key: 'accommodation', label: 'Accommodation & halls', icon: 'hall', blurb: 'Halls and official contacts' },
   { key: 'navigation', label: 'Getting around', icon: 'walk', blurb: 'Gates, transport, wayfinding' },
   { key: 'faq', label: 'FAQs', icon: 'chat', blurb: 'Common questions' },
-  { key: 'terminology', label: 'UG Explained', icon: 'info', blurb: 'University terms, explained' },
-  { key: 'official_links', label: 'Official resources', icon: 'link', blurb: 'Links to official UG sites' },
+  { key: 'terminology', label: `${CAMPUS.short} Explained`, icon: 'info', blurb: 'University terms, explained' },
+  { key: 'official_links', label: 'Official resources', icon: 'link', blurb: `Links to official ${CAMPUS.short} sites` },
 ];
 
 function useResources() {
@@ -38,16 +41,18 @@ export function FresherHome() {
   return (
     <div className="screen">
       <header className="page-head"><h1>Campus Guide</h1><p className="lede">Everything about life at {CAMPUS.campusName} — for students, staff and visitors.</p></header>
+      <ForYou />
       <a className="ai-hero" href="#/assistant">
         <div className="ai-orb"><Icon name="sparkle" /></div>
-        <div><b>Ask Campus AI</b><span>“Where is the Balme Library?” · “How do I register?”</span></div>
+        <div><b>Ask Campus AI</b><span>“Where is the main library?” · “How do I register?”</span></div>
         <Icon name="chevron" />
       </a>
+      <div className="section-title">Everyone</div>
       <div className="quick-grid">
         <a className="quick q-red" href="#/emergency"><Icon name="sos" /><b>Emergency</b><span>Call for help</span></a>
         <a className="quick q-blue" href="#/shuttles"><Icon name="bus" /><b>Shuttles</b><span>{shuttles.length ? `${shuttles.length} live now` : 'Routes & live'}</span></a>
         <a className="quick q-green" href="#/schedule"><Icon name="calendar" /><b>Timetable</b><span>Your classes</span></a>
-        <a className="quick q-gold" href="#/fresher/checklist"><Icon name="check" /><b>New to UG?</b><span>Starter checklist</span></a>
+        <a className="quick q-gold" href="#/fresher/checklist"><Icon name="check" /><b>New to {CAMPUS.short}?</b><span>Starter checklist</span></a>
       </div>
       {browse.length > 0 && <>
         <div className="section-title">Find on campus</div>
@@ -79,12 +84,12 @@ export function FresherSection({ section }: { section: string }) {
     <div className="screen">
       <BackLink href="#/guide" label="Guide" />
       <h1>{meta?.label || 'Topic'}</h1>
-      {section === 'terminology' && <p className="lede">Plain-language explanations. Entries marked “General guidance” are not official UG policy.</p>}
+      {section === 'terminology' && <p className="lede">Plain-language explanations. Entries marked “General guidance” are not official {CAMPUS.short} policy.</p>}
       {err && <Notice kind="error">{err} <button className="btn small" onClick={load}>Retry</button></Notice>}
       {!items && !err && <Loading />}
       {items && items.length === 0 && (
         <Empty icon="book" title="Nothing published here yet">
-          Verified content for this topic hasn’t been added. For now, check the official UG website: <a href="https://www.ug.edu.gh" target="_blank" rel="noopener noreferrer">ug.edu.gh</a>
+          Verified content for this topic hasn’t been added. For now, check the official {CAMPUS.short} website: <a href={CAMPUS.website} target="_blank" rel="noopener noreferrer">{CAMPUS.website.replace(/^https?:\/\/(www\.)?/, '')}</a>
         </Empty>
       )}
       <div className="list">
@@ -124,7 +129,7 @@ export function Halls() {
     <div className="screen">
       <BackLink href="#/guide" label="Guide" />
       <h1>Halls of residence</h1>
-      <p className="lede">Locations from the campus directory. For room allocation, fees and availability, only the official UG accommodation channels are authoritative — this app does not have access to allocation records.</p>
+      <p className="lede">Locations from the campus directory. For room allocation, fees and availability, only the official {CAMPUS.short} accommodation channels are authoritative — this app does not have access to allocation records.</p>
       {locState === 'loading' && <Loading />}
       {locState === 'ready' && halls.length === 0 && <Empty icon="hall" title="No halls in the directory yet" />}
       <div className="list">
@@ -143,7 +148,7 @@ export function Halls() {
   );
 }
 
-const GUEST_PROGRESS_KEY = 'ugnav.guest_checklist';
+const GUEST_PROGRESS_KEY = K('guest_checklist');
 
 export function Checklist() {
   const { user, byId, select, toast } = useStore();
@@ -168,7 +173,7 @@ export function Checklist() {
         if (has) await db('checklist_progress', `item_id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' });
         else await db('checklist_progress', '', { method: 'POST', body: { item_id: id }, prefer: 'return=minimal' });
       }
-      const next = new Set(done); has ? next.delete(id) : next.add(id); setDone(next);
+      const next = new Set(done); has ? next.delete(id) : next.add(id); setDone(next); if (!has) track('checklist_done');
       if (!user) try { localStorage.setItem(GUEST_PROGRESS_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
     } catch (e: any) { toast(e.message, 'error'); } finally { setBusy(null); }
   };
@@ -181,7 +186,7 @@ export function Checklist() {
     <div className="screen">
       <BackLink href="#/guide" label="Guide" />
       <h1>My checklist</h1>
-      <p className="lede">Tick items off as you complete them. <b>Official</b> items link to a UG source; <b>suggestions</b> are helpful tips, not requirements.</p>
+      <p className="lede">Tick items off as you complete them. <b>Official</b> items link to a {CAMPUS.short} source; <b>suggestions</b> are helpful tips, not requirements.</p>
       {!user && <Notice kind="info">You’re not signed in — progress is kept on this device only. <a href="#/login">Sign in</a> to sync it.</Notice>}
       {err && <Notice kind="error">{err}</Notice>}
       {!items && !err && <Loading />}
@@ -191,7 +196,7 @@ export function Checklist() {
           <div className="progress" style={{ marginTop: 8 }} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${pct}%` }} /></div>
         </div>
       )}
-      {items && total === 0 && <Empty icon="check" title="No checklist items published yet">Editors add items once they are confirmed against official UG sources.</Empty>}
+      {items && total === 0 && <Empty icon="check" title="No checklist items published yet">Editors add items once they are confirmed against official {CAMPUS.short} sources.</Empty>}
       <div className="list">
         {items?.map(i => {
           const loc = i.related_location_id ? byId.get(i.related_location_id) : null;

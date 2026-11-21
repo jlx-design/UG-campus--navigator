@@ -2,6 +2,11 @@ import React from 'react';
 import './lib/install'; // start listening for the install prompt before React mounts
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { CAMPUS } from './config';
+
+// Campus brand colours (the stylesheet defaults are UG's).
+document.documentElement.style.setProperty('--navy', CAMPUS.brand.navy);
+document.documentElement.style.setProperty('--gold', CAMPUS.brand.gold);
 
 createRoot(document.getElementById('root')!).render(<App />);
 

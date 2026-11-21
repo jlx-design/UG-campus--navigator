@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { track } from '../lib/track';
 import { Icon } from './Icon';
 import { useStore } from '../store';
 import { db, fn } from '../lib/api';
@@ -24,7 +25,7 @@ export function RemindersCard() {
       if (on) { await disablePush(); setOn(false); toast('Reminders turned off on this device'); }
       else {
         const r = await enablePush();
-        if (r === 'ok') { setOn(true); toast('Reminders on — sending a test…'); fn('/push/test', {}).catch(() => {}); }
+        if (r === 'ok') { setOn(true); toast('Reminders on — sending a test…'); track('reminder_on'); fn('/push/test', {}).catch(() => {}); }
         else if (r === 'denied') toast('Notifications are blocked. Allow them for this site in your browser settings.', 'error');
         else if (r === 'ios-install') toast('On iPhone, first add the app to your Home Screen, then turn on reminders from there.', 'error');
         else toast('This browser cannot receive notifications.', 'error');

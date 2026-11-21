@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { APP_NAME } from '../config';
+import { APP_NAME, CAMPUS } from '../config';
 import { useStore } from '../store';
 import { db, importOsm, rpc } from '../lib/api';
 import { SearchBox } from '../components/SearchBox';
@@ -11,14 +11,14 @@ import { ANN_CATEGORIES } from './Updates';
 import type { Announcement, ChecklistItem, FresherResource, Location, Report } from '../lib/types';
 import { fmtDate } from '../lib/geo';
 
-type Tab = 'overview' | 'insights' | 'locations' | 'rooms' | 'hours' | 'listings' | 'events' | 'announcements' | 'resources' | 'checklist' | 'emergency' | 'shuttles' | 'team' | 'reports' | 'audit';
+type Tab = 'overview' | 'analytics' | 'users' | 'insights' | 'locations' | 'rooms' | 'hours' | 'listings' | 'events' | 'announcements' | 'resources' | 'checklist' | 'emergency' | 'shuttles' | 'team' | 'reports' | 'audit';
 
 export function Admin({ tab }: { tab: Tab }) {
   const { role, authReady, user } = useStore();
   if (!authReady) return <div className="screen"><Loading /></div>;
   if (!user || (role !== 'editor' && role !== 'admin'))
     return <div className="screen"><h1>Administration</h1><Notice kind="error">You need an editor or administrator role to view this area. Roles are granted by an administrator, not from inside the app.</Notice></div>;
-  const tabs: [Tab, string][] = [['overview', 'Overview'], ['insights', 'Insights'], ['locations', 'Places'], ['rooms', 'Rooms'], ['hours', 'Opening hours'], ['listings', 'Business listings'], ['events', 'Events'], ['announcements', 'Announcements'], ['resources', 'Guide content'], ['checklist', 'Checklist'], ['emergency', 'Emergency'], ['shuttles', 'Shuttles'], ...(role === 'admin' ? [['team', 'Team'] as [Tab, string]] : []), ['reports', 'Reports'], ['audit', 'Audit log']];
+  const tabs: [Tab, string][] = [['overview', 'Overview'], ['analytics', 'Analytics'], ...(role === 'admin' ? [['users', 'Users'] as [Tab, string]] : []), ['insights', 'Top places'], ['locations', 'Places'], ['rooms', 'Rooms'], ['hours', 'Opening hours'], ['listings', 'Business listings'], ['events', 'Events'], ['announcements', 'Announcements'], ['resources', 'Guide content'], ['checklist', 'Checklist'], ['emergency', 'Emergency'], ['shuttles', 'Shuttles'], ...(role === 'admin' ? [['team', 'Team'] as [Tab, string]] : []), ['reports', 'Reports'], ['audit', 'Audit log']];
   return (
     <div className="screen" style={{ maxWidth: 1000 }}>
       <BackLink href="#/me" label="Me" />
@@ -27,6 +27,8 @@ export function Admin({ tab }: { tab: Tab }) {
       <div className="tabs" role="tablist">{tabs.map(([k, l]) => <a key={k} role="tab" aria-selected={tab === k} className="chip" aria-pressed={tab === k} href={`#/admin/${k}`}>{l}</a>)}</div>
       {tab === 'overview' && <Overview />}
       {tab === 'insights' && <Insights />}
+      {tab === 'analytics' && <Analytics />}
+      {tab === 'users' && role === 'admin' && <UsersAdmin />}
       {tab === 'rooms' && <RoomsAdmin />}
       {tab === 'hours' && <HoursAdmin />}
       {tab === 'listings' && <ListingsAdmin />}
@@ -104,7 +106,7 @@ function LocationsAdmin() {
         <button className="btn" onClick={() => setEdit({ verification: 'verified', is_published: true, alt_names: [], category: 'academic', source_label: '' })}><Icon name="plus" />Add place</button>
         {role === 'admin' && <button className="btn" onClick={runImport} disabled={importing}>{importing ? <span className="spinner" /> : <Icon name="refresh" />}Import from OpenStreetMap</button>}
       </div>
-      <p className="hint">OpenStreetMap imports arrive as “unverified”. Verify a place only after checking it on the ground or against an official UG source. Imports never overwrite verified records.</p>
+      <p className="hint">OpenStreetMap imports arrive as “unverified”. Verify a place only after checking it on the ground or against an official {CAMPUS.short} source. Imports never overwrite verified records.</p>
       {edit && (
         <div className="card" style={{ margin: '12px 0' }}>
           <h3>{edit.id ? 'Edit place' : 'New place'}</h3>
@@ -221,7 +223,7 @@ function ResourcesAdmin() {
       source_updated_at: edit.source_updated_at || null, location_id: edit.location_id || null, contact_phone: blank(edit.contact_phone || ''), contact_email: blank(edit.contact_email || ''),
       opening_hours: blank(edit.opening_hours || ''), sort_order: Number(edit.sort_order ?? 100), is_published: !!edit.is_published };
     if (!body.title || !body.body) { toast('Title and text are required', 'error'); return; }
-    if (body.is_official && !body.source_url) { toast('Official content must link to its UG source', 'error'); return; }
+    if (body.is_official && !body.source_url) { toast(`Official content must link to its ${CAMPUS.short} source`, 'error'); return; }
     try {
       if (edit.id) await db('fresher_resources', `id=eq.${edit.id}`, { method: 'PATCH', body, prefer: 'return=minimal' });
       else await db('fresher_resources', '', { method: 'POST', body, prefer: 'return=minimal' });
@@ -230,7 +232,7 @@ function ResourcesAdmin() {
   };
   return (
     <>
-      <div className="row" style={{ marginBottom: 12 }}><span className="sub">Only mark content “official” when it restates an authoritative UG source you link to.</span><span className="spacer" />
+      <div className="row" style={{ marginBottom: 12 }}><span className="sub">Only mark content “official” when it restates an authoritative {CAMPUS.short} source you link to.</span><span className="spacer" />
         <button className="btn" onClick={() => setEdit({ section: 'getting_started', is_official: false, is_published: false, sort_order: 100 })}><Icon name="plus" />New item</button></div>
       {edit && (
         <div className="card" style={{ marginBottom: 12 }}>
@@ -241,7 +243,7 @@ function ResourcesAdmin() {
           <div className="row wrap"><Input label="Phone (verified)" value={edit.contact_phone || ''} onChange={e => setEdit({ ...edit, contact_phone: e.target.value })} /><Input label="Email (verified)" value={edit.contact_email || ''} onChange={e => setEdit({ ...edit, contact_email: e.target.value })} /><Input label="Opening hours (verified)" value={edit.opening_hours || ''} onChange={e => setEdit({ ...edit, opening_hours: e.target.value })} /></div>
           <div className="field"><label>Related place</label><select className="input" value={edit.location_id || ''} onChange={e => setEdit({ ...edit, location_id: e.target.value || null })}><option value="">None</option>{locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></div>
           <div className="row wrap"><Input label="Sort order" type="number" value={edit.sort_order ?? 100} onChange={e => setEdit({ ...edit, sort_order: Number(e.target.value) })} />
-            <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!edit.is_official} onChange={e => setEdit({ ...edit, is_official: e.target.checked })} />Official UG information</label>
+            <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!edit.is_official} onChange={e => setEdit({ ...edit, is_official: e.target.checked })} />Official {CAMPUS.short} information</label>
             <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!edit.is_published} onChange={e => setEdit({ ...edit, is_published: e.target.checked })} />Published</label></div>
           <div className="row"><button className="btn primary" onClick={save}>Save</button><button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button></div>
         </div>
@@ -281,7 +283,7 @@ function ChecklistAdmin() {
           <Input label="Task" value={edit.title || ''} onChange={e => setEdit({ ...edit, title: e.target.value })} />
           <Text label="Explanation" value={edit.explanation || ''} onChange={e => setEdit({ ...edit, explanation: e.target.value })} />
           <div className="row wrap"><div className="field"><label>Type</label><select className="input" value={edit.kind} onChange={e => setEdit({ ...edit, kind: e.target.value as any })}><option value="suggestion">Suggestion</option><option value="official">Official requirement</option></select></div>
-            <Input label="Deadline (only if published by UG)" type="date" value={edit.deadline || ''} onChange={e => setEdit({ ...edit, deadline: e.target.value })} /></div>
+            <Input label={`Deadline (only if published by ${CAMPUS.short})`} type="date" value={edit.deadline || ''} onChange={e => setEdit({ ...edit, deadline: e.target.value })} /></div>
           <div className="row wrap"><Input label="Source label" value={edit.source_label || ''} onChange={e => setEdit({ ...edit, source_label: e.target.value })} /><Input label="Source URL" type="url" value={edit.source_url || ''} onChange={e => setEdit({ ...edit, source_url: e.target.value })} /></div>
           <div className="row wrap"><Input label="Sort order" type="number" value={edit.sort_order ?? 100} onChange={e => setEdit({ ...edit, sort_order: Number(e.target.value) })} />
             <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!edit.is_published} onChange={e => setEdit({ ...edit, is_published: e.target.checked })} />Published</label></div>
@@ -412,7 +414,7 @@ function ShuttlesAdmin() {
   const del = async (table: string, id: string, reload: () => void) => { if (!confirm('Delete this item?')) return; try { await db(table, `id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' }); reload(); } catch (e: any) { toast(e.message, 'error'); } };
   return (
     <>
-      <p className="hint">Enter routes and stops only as confirmed with the UG transport office. Drivers are granted the <b>driver</b> role in the Team tab, then share their live position from Shuttles → Driver mode.</p>
+      <p className="hint">Enter routes and stops only as confirmed with the {CAMPUS.short} transport office. Drivers are granted the <b>driver</b> role in the Team tab, then share their live position from Shuttles → Driver mode.</p>
       <div className="section-title row">Routes<span className="spacer" /><button className="btn small" onClick={() => setR({ color: '#0ea5e9', is_active: true })}><Icon name="plus" />Route</button></div>
       {r && <div className="card"><Input label="Route name" value={r.name || ''} onChange={e => setR({ ...r, name: e.target.value })} /><div className="row wrap"><div className="field"><label>Colour</label><input className="input" type="color" value={r.color || '#0ea5e9'} onChange={e => setR({ ...r, color: e.target.value })} /></div><Input label="Hours (verified)" value={r.hours || ''} onChange={e => setR({ ...r, hours: e.target.value })} /></div>
         <Text label="Description" value={r.description || ''} onChange={e => setR({ ...r, description: e.target.value })} /><div className="row wrap"><Input label="Source label" value={r.source_label || ''} onChange={e => setR({ ...r, source_label: e.target.value })} /><Input label="Source URL" value={r.source_url || ''} onChange={e => setR({ ...r, source_url: e.target.value })} /></div>
@@ -635,6 +637,144 @@ function EventsAdmin() {
       {rows?.length === 0 && <Empty icon="event" title="No events yet" />}
       <div className="list">{rows?.map(r => <div key={r.id} className="card row"><div style={{ flex: 1, minWidth: 0 }}><b>{r.title}</b><div className="sub">{new Date(r.starts_at).toLocaleString()} · {(r.location_id && byId.get(r.location_id)?.name) || r.venue_text || 'no venue'} · <b>{r.status}</b></div></div><button className="btn small" onClick={() => setE(r)}><Icon name="edit" /></button>
         <button className="btn small" onClick={async () => { if (confirm('Delete this event?')) { await db('events', `id=eq.${r.id}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(x => toast(x.message, 'error')); load(); } }}><Icon name="trash" /></button></div>)}</div>
+    </>
+  );
+}
+
+// ───────── Analytics (from admin_analytics) ─────────
+const EV_LABEL: Record<string, string> = {
+  app_open: 'App opens', search: 'Searches', place_view: 'Places viewed', route: 'Routes planned', nav_start: 'Navigations started', nav_arrive: 'Arrivals',
+  ai_question: 'AI questions', install: 'Installs', sign_up: 'Sign-ups', sign_in: 'Sign-ins', course_add: 'Courses added', class_add: 'Class times added',
+  exam_add: 'Exams added', gpa_add: 'Grades added', reminder_on: 'Reminders turned on', share_trip: 'Trips shared', offline_download: 'Offline maps saved',
+  event_view: 'Events viewed', emergency_call: 'Emergency calls', details_saved: 'Details saved', onboard_fresher: 'Chose “fresher”', onboard_continuing: 'Chose “continuing”',
+  onboard_staff: 'Chose “staff”', onboard_visitor: 'Chose “visitor”', room_found: 'Rooms found', guide_view: 'Guide views', checklist_done: 'Checklist ticks',
+};
+const PLATFORM: Record<string, string> = { android: 'Android', ios: 'iPhone / iPad', windows: 'Windows', mac: 'Mac', linux: 'Linux / ChromeOS', other: 'Other' };
+const nf = (n: number) => (n ?? 0).toLocaleString();
+
+/** Single-series column chart: one hue, thin columns, hover/focus tooltip per column. */
+function Columns({ rows, label, value, title }: { rows: any[]; label: (r: any) => string; value: (r: any) => number; title: string }) {
+  const max = Math.max(1, ...rows.map(value));
+  const total = rows.reduce((a, r) => a + value(r), 0);
+  return (
+    <figure className="card chart" style={{ margin: 0 }}>
+      <figcaption className="row"><h3 style={{ margin: 0, flex: 1 }}>{title}</h3><span className="sub">{nf(total)} total · peak {nf(max === 1 && total === 0 ? 0 : max)}</span></figcaption>
+      {total === 0 ? <p className="sub">No data yet.</p> : <>
+        <div className="cols" role="img" aria-label={`${title}: ${rows.map(r => `${label(r)} ${value(r)}`).join(', ')}`}>
+          {rows.map((r, i) => <div key={i} className="col" tabIndex={0} data-tip={`${label(r)}: ${nf(value(r))}`}><i style={{ height: `${(value(r) / max) * 100}%` }} /></div>)}
+        </div>
+        <div className="cols-axis"><span>{label(rows[0])}</span><span>{label(rows[rows.length - 1])}</span></div>
+      </>}
+    </figure>
+  );
+}
+
+/** Ranked horizontal bars for a breakdown (magnitude, one hue, labels in text ink). */
+function Breakdown({ title, data, labels }: { title: string; data: Record<string, number> | { name: string; n: number }[]; labels?: Record<string, string> }) {
+  const rows = (Array.isArray(data) ? data.map(x => [x.name, x.n] as [string, number]) : Object.entries(data || {})).sort((a, b) => b[1] - a[1]);
+  const max = Math.max(1, ...rows.map(r => r[1])); const total = rows.reduce((a, r) => a + r[1], 0);
+  return (
+    <div className="card" style={{ margin: 0 }}>
+      <h3>{title}</h3>
+      {rows.length === 0 ? <p className="sub">No data yet.</p> : <ul className="hbars">{rows.slice(0, 12).map(([k, n]) => (
+        <li key={k}><span className="hb-label">{labels?.[k] || k}</span><span className="hb-track"><i style={{ width: `${(n / max) * 100}%` }} /></span><b>{nf(n)}</b><small>{total ? Math.round((n / total) * 100) : 0}%</small></li>
+      ))}</ul>}
+    </div>
+  );
+}
+
+function Analytics() {
+  const [d, setD] = useState<any>(null); const [err, setErr] = useState(''); const [days, setDays] = useState(30);
+  const load = () => { setErr(''); setD(null); rpc<any>('admin_analytics', { p_days: days }).then(setD).catch(e => setErr(e.message)); };
+  useEffect(load, [days]);
+  const csv = () => {
+    const lines = ['day,active_devices,signed_in_users,sign_ups,app_opens', ...d.daily.map((r: any) => `${r.day},${r.devices},${r.users},${r.signups},${r.opens}`)];
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' })); a.download = `${CAMPUS.id}-usage-${days}d.csv`; a.click(); URL.revokeObjectURL(a.href);
+  };
+  if (err) return <Notice kind="error">Could not load analytics: {err} <button className="btn small" onClick={load}>Retry</button></Notice>;
+  return (
+    <>
+      <div className="row wrap" style={{ marginBottom: 12, gap: 8 }}>
+        <div className="seg">{[7, 30, 90].map(n => <button key={n} aria-pressed={days === n} onClick={() => setDays(n)}>{n} days</button>)}</div>
+        <span className="spacer" />
+        {d && <button className="btn small" onClick={csv}><Icon name="download" />Export CSV</button>}
+        <button className="btn small" onClick={load}><Icon name="refresh" />Refresh</button>
+      </div>
+      {!d ? <Loading /> : !d.users ? <Notice kind="error">You need an editor role to see analytics.</Notice> : <>
+        <div className="section-title">People</div>
+        <div className="stat-grid">
+          <div className="stat"><span>Accounts</span><b>{nf(d.users.total)}</b><small>{nf(d.users.verified)} verified email</small></div>
+          <div className="stat"><span>New accounts</span><b>{nf(d.users.new_in_period)}</b><small>last {days} days</small></div>
+          <div className="stat"><span>Active today</span><b>{nf(d.active.dau_devices)}</b><small>devices · {nf(d.active.dau_users)} signed in</small></div>
+          <div className="stat"><span>Active this week</span><b>{nf(d.active.wau_devices)}</b><small>devices · {nf(d.active.wau_users)} signed in</small></div>
+          <div className="stat"><span>Active this month</span><b>{nf(d.active.mau_devices)}</b><small>devices · {nf(d.active.mau_users)} signed in</small></div>
+          <div className="stat"><span>Returning devices</span><b>{nf(d.active.returning_devices)}</b><small>of {nf(d.active.devices_in_period)} used on 2+ days</small></div>
+          <div className="stat"><span>Installed app</span><b>{nf(d.installed_devices)}</b><small>devices on home screen</small></div>
+          <div className="stat"><span>Push reminders</span><b>{nf(d.users.push_devices)}</b><small>subscribed devices</small></div>
+        </div>
+        <div className="chart-grid">
+          <Columns title="Active devices per day" rows={d.daily} label={r => fmtDate(r.day)} value={r => r.devices} />
+          <Columns title="Signed-in users per day" rows={d.daily} label={r => fmtDate(r.day)} value={r => r.users} />
+          <Columns title="New accounts per day" rows={d.daily} label={r => fmtDate(r.day)} value={r => r.signups} />
+          <Columns title="When people open the app (hour of day)" rows={Array.from({ length: 24 }, (_, h) => ({ h, n: (d.hours.find((x: any) => x.hour === h) || {}).n || 0 }))} label={r => `${String(r.h).padStart(2, '0')}:00`} value={r => r.n} />
+        </div>
+
+        <div className="section-title">Students</div>
+        <div className="chart-grid">
+          <Breakdown title="Freshers vs continuing" data={d.students.by_type} labels={{ fresher: 'Freshers (Level 100)', continuing: 'Continuing (200+)', postgraduate: 'Postgraduate', staff: 'Staff', visitor: 'Visitors' }} />
+          <Breakdown title="By level" data={d.students.by_level} labels={{ '100': 'Level 100', '200': 'Level 200', '300': 'Level 300', '400': 'Level 400', '500': 'Level 500', '600': 'Level 600', masters: "Master's", mphil: 'MPhil', phd: 'PhD' }} />
+          <Breakdown title="Top halls" data={d.students.top_halls} />
+          <Breakdown title="Top programmes" data={d.students.top_programmes} />
+          <Breakdown title="Where they live" data={d.students.by_residence} labels={{ hall: 'Hall', hostel: 'Hostel', off_campus: 'Off campus', home: 'At home' }} />
+          <Breakdown title="Devices" data={d.platforms} labels={PLATFORM} />
+        </div>
+
+        <div className="section-title">Feature use</div>
+        <div className="stat-grid">
+          <div className="stat"><span>Timetables</span><b>{nf(d.features.users_with_timetable)}</b><small>{nf(d.features.class_sessions)} class times</small></div>
+          <div className="stat"><span>Exam planners</span><b>{nf(d.features.users_with_exams)}</b><small>people with exams added</small></div>
+          <div className="stat"><span>{(CAMPUS.grading.mode as string) === 'cwa' ? 'CWA' : 'GPA'} users</span><b>{nf(d.features.users_with_gpa)}</b><small>people tracking grades</small></div>
+          <div className="stat"><span>Saved places</span><b>{nf(d.features.saved_places)}</b><small>across all accounts</small></div>
+          <div className="stat"><span>Trips shared</span><b>{nf(d.features.live_shares)}</b><small>last {days} days</small></div>
+          <a className="stat" href="#/admin/reports"><span>Open reports</span><b>{nf(d.features.reports_open)}</b><small>awaiting review</small></a>
+        </div>
+        <div className="chart-grid">
+          <Breakdown title={`All activity (last ${days} days)`} data={d.events} labels={EV_LABEL} />
+          <div className="card" style={{ margin: 0 }}><h3>Activity counts</h3>
+            <table className="table"><thead><tr><th>Action</th><th style={{ textAlign: 'right' }}>Count</th></tr></thead>
+              <tbody>{Object.keys(EV_LABEL).map(k => <tr key={k}><td>{EV_LABEL[k]}</td><td style={{ textAlign: 'right' }}>{nf(d.events[k] || 0)}</td></tr>)}</tbody></table></div>
+        </div>
+        <div className="chart-grid">
+          <Breakdown title="Top destinations (routes planned)" data={d.top_destinations} />
+          <Breakdown title="Most viewed places" data={d.top_viewed} />
+        </div>
+        <p className="hint">Devices are counted by a random install ID made on each device; one person on two devices counts twice. Counts started when this dashboard was released — earlier activity wasn't recorded per device. No search text, locations or student IDs are collected.</p>
+      </>}
+    </>
+  );
+}
+
+// ───────── Users (admin only, from admin_users) ─────────
+function UsersAdmin() {
+  const [q, setQ] = useState(''); const [rows, setRows] = useState<any[] | null>(null); const [err, setErr] = useState('');
+  useEffect(() => { const t = setTimeout(() => { setErr(''); rpc<any[]>('admin_users', { p_q: q.trim(), p_limit: 500 }).then(setRows).catch(e => setErr(e.message)); }, 250); return () => clearTimeout(t); }, [q]);
+  const type = (r: any) => r.affiliation === 'student' ? (r.level === '100' ? 'Fresher' : /^[2-6]00$/.test(r.level || '') ? 'Continuing' : ['masters', 'mphil', 'phd'].includes(r.level) ? 'Postgraduate' : 'Student') : r.affiliation ? r.affiliation[0].toUpperCase() + r.affiliation.slice(1) : '—';
+  return (
+    <>
+      <div className="field"><label htmlFor="uq">Search by name or email</label><input id="uq" className="input" value={q} onChange={e => setQ(e.target.value)} placeholder="e.g. ama@" /></div>
+      {err && <Notice kind="error">{err}</Notice>}
+      {!rows ? <Loading /> : rows.length === 0 ? <Empty icon="user" title="No matching users" /> : <>
+        <p className="sub">{rows.length} user{rows.length === 1 ? '' : 's'}{rows.length >= 500 ? ' (first 500)' : ''}</p>
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <table className="table"><thead><tr><th>Name / email</th><th>Type</th><th>Level</th><th>Programme</th><th>Hall</th><th>Joined</th><th>Last active</th><th>Days active</th><th>Role</th></tr></thead>
+            <tbody>{rows.map(r => <tr key={r.user_id}>
+              <td><b>{r.name || '—'}</b><div className="sub">{r.email}{!r.verified && ' · unverified'}</div></td>
+              <td>{type(r)}</td><td>{r.level || '—'}</td><td>{r.programme || '—'}</td><td>{r.hall || '—'}</td>
+              <td>{fmtDate(r.joined)}</td><td>{r.last_active ? fmtDate(r.last_active) : '—'}</td><td>{r.active_days}</td><td>{r.role || 'user'}</td>
+            </tr>)}</tbody></table>
+        </div>
+        <p className="hint">Only what people chose to share. The app never collects student IDs or index numbers.</p>
+      </>}
     </>
   );
 }

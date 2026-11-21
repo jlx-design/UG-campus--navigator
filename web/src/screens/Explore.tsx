@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon';
 import { SearchBox } from '../components/SearchBox';
 import { Notice, SourceLink, VerificationTag, go } from '../components/common';
 import type { MapApi } from '../components/MapView';
+import { importOsm } from '../lib/api';
 import { fmtDate, fmtDistance, haversine } from '../lib/geo';
 
 function LayersPanel({ mapApi, onClose }: { mapApi: React.MutableRefObject<MapApi | null>; onClose: () => void }) {
@@ -33,7 +34,13 @@ function LayersPanel({ mapApi, onClose }: { mapApi: React.MutableRefObject<MapAp
 }
 
 export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.MutableRefObject<MapApi | null>; filter: string | null; setFilter: (f: string | null) => void }) {
-  const { categories, locations, locState, locError, reloadLocations, selectedId, select, byId, geo, startGeo, saved, toggleSaved, goDirections } = useStore();
+  const { categories, locations, locState, locError, reloadLocations, selectedId, select, byId, geo, startGeo, saved, toggleSaved, goDirections, setPin, role, toast } = useStore();
+  const [importing, setImporting] = useState(false);
+  const runImport = async () => {
+    setImporting(true);
+    try { const r = await importOsm(); toast(`Imported ${r.inserted} places from OpenStreetMap (unverified until checked)`); reloadLocations(); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setImporting(false); }
+  };
   const sel = selectedId ? byId.get(selectedId) : null;
   const usedCats = categories.filter(c => locations.some(l => l.category === c.slug));
   const [locating, setLocating] = useState(false);
@@ -64,7 +71,10 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
           </div>
         )}
         {locState === 'error' && <Notice kind="error">Could not load campus places: {locError} <button className="btn small" onClick={reloadLocations}>Retry</button></Notice>}
-        {locState === 'ready' && locations.length === 0 && <Notice kind="info">The campus directory has no published places yet. Editors can add verified places or import OpenStreetMap data from the admin area.</Notice>}
+        {locState === 'ready' && locations.length === 0 && <Notice kind="info">
+          The campus directory has no places yet, so search is empty. You can still get step-by-step walking directions: <b>press and hold</b> (or right-click) anywhere on the map to drop a pin, then tap Directions.
+          {(role === 'editor' || role === 'admin') && <div style={{ marginTop: 8 }}><button className="btn small primary" disabled={importing} onClick={runImport}>{importing ? <span className="spinner" /> : <Icon name="download" />}Import campus buildings from OpenStreetMap</button></div>}
+        </Notice>}
         {geo.status === 'denied' && <Notice>Location permission is blocked. You can still browse and plan routes from a point you pick on the map. To enable it, allow location for this site in your browser settings.</Notice>}
         {geo.status === 'unavailable' && <Notice>{geo.message}</Notice>}
       </div>
@@ -82,7 +92,23 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
       <a className="ask-pill glass" href="#/assistant"><Icon name="sparkle" />{'Ask Campus AI'}</a>
       {layers && <LayersPanel mapApi={mapApi} onClose={() => setLayers(false)} />}
 
-      {sel && !layers && (
+      {sel && sel.id === 'pin' && !layers && (
+        <section className="sheet glass" aria-label="Dropped pin">
+          <div className="grab" />
+          <div className="row" style={{ alignItems: 'flex-start' }}>
+            <div style={{ minWidth: 0 }}><h2>Dropped pin</h2><div className="meta"><span>{sel.lat.toFixed(5)}, {sel.lng.toFixed(5)}</span>{geo.status === 'ok' && <span>· {fmtDistance(haversine(geo.pos, [sel.lat, sel.lng]))} away (straight line)</span>}</div></div>
+            <span className="spacer" />
+            <button className="icon-btn" onClick={() => { select(null); setPin(null); }} aria-label="Remove pin"><Icon name="close" /></button>
+          </div>
+          <p style={{ fontSize: 14 }}>Walking directions follow real footpaths and roads from OpenStreetMap. Press and hold somewhere else to move the pin.</p>
+          <div className="row wrap" style={{ marginTop: 8 }}>
+            <button className="btn primary" onClick={() => directions(sel.id)}><Icon name="walk" />Directions</button>
+            <a className="btn ghost small" href="#/report?kind=missing_place"><Icon name="flag" />Suggest a missing place</a>
+          </div>
+        </section>
+      )}
+
+      {sel && sel.id !== 'pin' && !layers && (
         <section className="sheet glass" aria-label={`${sel.name} details`}>
           <div className="grab" />
           <div className="row" style={{ alignItems: 'flex-start' }}>

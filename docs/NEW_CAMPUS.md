@@ -39,7 +39,9 @@ node scripts/new-campus.mjs knust "KNUST Navigator" "Kwame Nkrumah University of
 # edit web/campus/knust.json: api URLs, VAPID public key, brand colours, grading (with official source)
 cd web && CAMPUS=knust node build.mjs      # output in web/dist
 ```
-Publish `web/dist` to that campus's site (GitHub Pages repo, Netlify, Vercel…).
+Publish `web/dist` to that campus's site, **or** build everything at once — the campus chooser at the root and
+every campus app under `/<id>/` — with `cd web && node build-site.mjs ../site` and publish `site/` (this is how the
+GitHub Pages site is deployed). Add `short` (e.g. `KNUST`) and `website` to the campus JSON; the chooser and app text use them.
 
 ## 4. Load the campus directory
 Sign in as the admin → Administration → Places → **Import from OpenStreetMap**, then verify places, add rooms,
@@ -47,5 +49,14 @@ opening hours, emergency numbers, shuttle routes and guide content — each with
 
 ## Notes
 - Grading differs by university (some use CWA / percentages rather than a 4.0 GPA). Enter the campus's own scale;
-  the GPA screen reads it from the config. A CWA mode needs a small addition to `Gpa.tsx` before launch.
+  the GPA screen reads it from the config. `"mode": "cwa"` switches it to a credit-weighted average of marks (KNUST).
+  Set `"verified": true` in `grading` only after checking the scale against an official document — until then the
+  screen tells students it's an estimate.
+
+## Live campuses
+| Campus | Neon project | Function | Grading |
+|---|---|---|---|
+| UG (Legon) | icy-cloud-48010088 | br-ancient-sun-bhowhjub-api… (eu-central-1) | 4.0 GPA, official AQAU source |
+| KNUST (Kumasi) | lucky-haze-89979535 | br-icy-cell-bdgwu010-api… (us-east-2) | CWA, student-guide source — verify |
+| UCC (Cape Coast) | proud-moon-85036664 | br-nameless-feather-bdrnozl3-api… (us-east-2) | 4.0 GPA, student-guide source — verify |
 - Satellite imagery (Esri) has licence terms for commercial products — check before selling.

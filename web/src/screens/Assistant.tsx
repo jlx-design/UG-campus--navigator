@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { K } from '../lib/keys';
+import { CAMPUS } from '../config';
 import { track } from '../lib/track';
 import { askAssistant } from '../lib/api';
 import { useStore } from '../store';
@@ -8,7 +10,7 @@ import type { AssistantSource } from '../lib/types';
 
 interface Msg { role: 'user' | 'assistant'; content: string; sources?: AssistantSource[]; locationIds?: string[]; error?: boolean }
 
-const KEY = 'ugnav.chat';
+const KEY = K('chat');
 const SUGGESTIONS = ['Where is the main library?', 'How do I get to my hall of residence?', 'What should I do after receiving admission?', 'Where can I find official registration information?'];
 
 /** Renders [S1]-style citations as superscripts; everything else stays plain text (no HTML injection). */
@@ -42,7 +44,7 @@ export function Assistant() {
   return (
     <div className="screen">
       <div className="row"><h1 style={{ flex: 1 }}>Assistant</h1>{msgs.length > 0 && <button className="btn small" onClick={() => { setMsgs([]); sessionStorage.removeItem(KEY); }}><Icon name="plus" />New chat</button>}</div>
-      <p className="lede">Ask about places and university life. Answers about UG are based on the app’s verified records and cite their sources; when the app doesn’t know, it says so.</p>
+      <p className="lede">Ask about places and university life. Answers about {CAMPUS.short} are based on the app’s verified records and cite their sources; when the app doesn’t know, it says so.</p>
       <div className="chat" aria-live="polite">
         {msgs.length === 0 && (
           <div className="list">

@@ -1,0 +1,45 @@
+// Front door + onboarding flow test (headless Chrome, mobile viewport).
+import { chromium } from '/opt/npm-tools/node_modules/playwright/index.mjs';
+const base = process.argv[2] || 'http://127.0.0.1:8765/UG-campus--navigator';
+const out = process.argv[3] || '/tmp/shots';
+const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const page = await ctx.newPage(); const errors = [];
+page.on('pageerror', e => errors.push(e.message));
+const ok = (c, m) => console.log(`${c ? 'PASS' : 'FAIL'}  ${m}`);
+
+await page.goto(`${base}/`); await page.waitForTimeout(600);
+ok((await page.locator('a.campus').count()) === 3, 'chooser lists 3 campuses');
+await page.screenshot({ path: `${out}/frontdoor.png` });
+await page.locator('a.campus[data-id="ucc"]').click(); await page.waitForURL(/\/ucc\//); await page.waitForTimeout(1200);
+ok(page.url().includes('/ucc/') && page.url().includes('#/welcome'), `picked UCC -> ${page.url().replace(base, '')}`);
+ok((await page.locator('.campus-confirm').textContent()).includes('University of Cape Coast'), 'welcome confirms UCC campus');
+await page.screenshot({ path: `${out}/welcome.png` });
+await page.locator('button.choice', { hasText: 'continuing' }).click(); await page.locator('.level-grid button', { hasText: '300' }).click();
+await page.waitForTimeout(1200);
+ok(page.url().endsWith('#/guide'), 'continuing -> guide');
+ok((await page.locator('.for-you-h').textContent()) === 'Your semester', 'continuing home = "Your semester"');
+ok((await page.locator('.pill').first().textContent()).includes('Level 300'), 'badge shows Level 300');
+await page.screenshot({ path: `${out}/guide_continuing.png`, fullPage: true });
+await page.goto(`${base}/ucc/#/welcome`); await page.waitForTimeout(800);
+await page.locator('button.choice', { hasText: 'fresher' }).click(); await page.waitForTimeout(1200);
+ok((await page.locator('.for-you-h').textContent()) === 'Your first year at UCC', 'fresher home = "Your first year at UCC"');
+await page.screenshot({ path: `${out}/guide_fresher.png`, fullPage: true });
+await page.goto(`${base}/ucc/#/map`); await page.waitForTimeout(800);
+ok(page.url().endsWith('#/map'), 'onboarded user is not sent to welcome again');
+await page.goto(`${base}/`); await page.waitForTimeout(1000);
+ok(page.url().includes('/ucc/'), 'front door remembers UCC');
+await page.goto(`${base}/?choose=1`); await page.waitForTimeout(500);
+ok((await page.locator('.last').count()) === 1, '?choose=1 shows chooser with current campus marked');
+await page.goto(`${base}/ucc/#/me`); await page.waitForTimeout(800);
+ok((await page.locator('a.menu-item', { hasText: 'Switch campus' }).getAttribute('href'))?.endsWith('/UG-campus--navigator/?choose=1'), 'Me -> Switch campus links to chooser');
+await page.goto(`${base}/ucc/#/login`); await page.waitForTimeout(800);
+ok((await page.locator('.campus-line').textContent()).includes('University of Cape Coast'), 'sign-in names the campus');
+await page.goto(`${base}/ucc/#/gpa`); await page.waitForTimeout(800);
+ok((await page.locator('.notice').first().textContent()).includes("hasn't been confirmed"), 'UCC GPA shows unverified-scale notice');
+// Legacy deep link on a fresh device goes to UG.
+const ctx2 = await browser.newContext(); const p2 = await ctx2.newPage();
+await p2.goto(`${base}/#/follow/abc`); await p2.waitForTimeout(1200);
+ok(p2.url().includes('/ug/#/follow/abc'), `legacy link -> ${p2.url().replace(base, '')}`);
+ok(errors.length === 0, `JS errors: ${errors.join(' | ') || 'none'}`);
+await browser.close();

@@ -2,9 +2,11 @@
 // No third-party cookies are involved, so it works in Safari, Brave and installed PWAs alike.
 // The opaque session string is kept in localStorage and exchanged for short-lived JWTs.
 import { CONFIG } from '../config';
+import { track } from './track';
+import { K } from './keys';
 import type { SessionUser } from './types';
 
-const SESSION_KEY = 'ugnav.session.v2';
+const SESSION_KEY = K('session.v2');
 export type Role = 'user' | 'editor' | 'admin' | 'driver';
 interface Bundle { session: string; jwt: string | null; role: Role; user: SessionUser }
 
@@ -74,17 +76,18 @@ export const getJwt = getToken;
 export type SignResult = { ok: true } | { verify: string };
 export async function signUp(name: string, email: string, password: string): Promise<SignResult> {
   const r = await call<any>('sign-up', { name, email, password });
+  track('sign_up');
   if (r.pending_verification) return { verify: r.email || email };
   apply(r); return { ok: true };
 }
 export async function signIn(email: string, password: string): Promise<SignResult> {
-  try { const r = await call<any>('sign-in', { email, password }); if (r.pending_verification) return { verify: email }; apply(r); return { ok: true }; }
+  try { const r = await call<any>('sign-in', { email, password }); if (r.pending_verification) return { verify: email }; apply(r); track('sign_in'); return { ok: true }; }
   catch (e: any) { if (e.code === 'EMAIL_NOT_VERIFIED') return { verify: email }; throw e; }
 }
 /** Returns true when verified and signed in; false when verified but a fresh sign-in is needed. */
 export async function verifyEmail(email: string, code: string) {
   const r = await call<any>('verify-email', { email, code });
-  if (r.session) { apply(r); return true; }
+  if (r.session) { apply(r); track('sign_in'); return true; }
   return false;
 }
 export const resendCode = (email: string) => call('resend-code', { email });

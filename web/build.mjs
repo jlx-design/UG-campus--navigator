@@ -26,11 +26,11 @@ const result = await build({
   entryNames: '[name]', chunkNames: 'chunks/[name]-[hash]', metafile: true, logLevel: 'warning',
 });
 cpSync(join(root, 'src/styles.css'), join(dist, 'app.css'));
-writeFileSync(join(dist, 'index.html'), readFileSync(join(root, 'index.html'), 'utf8').replaceAll('__APP_NAME__', campus.appName).replaceAll('__UNIVERSITY__', campus.university).replaceAll('__THEME__', campus.brand.navy));
+writeFileSync(join(dist, 'index.html'), readFileSync(join(root, 'index.html'), 'utf8').replaceAll('__APP_NAME__', campus.appName).replaceAll('__UNIVERSITY__', campus.university).replaceAll('__THEME__', campus.brand.navy).replaceAll('__PREFS_KEY__', campus.id === 'ug' ? 'ugnav.prefs.v1' : `ugnav.${campus.id}.prefs.v1`));
 cpSync(join(root, 'public'), dist, { recursive: true });
 
 const buildId = Date.now().toString(36);
-const sw = readFileSync(join(dist, 'sw.js'), 'utf8').replace('__BUILD_ID__', buildId);
+const sw = readFileSync(join(dist, 'sw.js'), 'utf8').replace('__BUILD_ID__', buildId).replaceAll("'ugnav-", campus.id === 'ug' ? "'ugnav-" : `'ugnav-${campus.id}-`).replaceAll('`ugnav-', campus.id === 'ug' ? '`ugnav-' : `\`ugnav-${campus.id}-`);
 writeFileSync(join(dist, 'sw.js'), sw);
 const mf = JSON.parse(readFileSync(join(dist, 'manifest.webmanifest'), 'utf8'));
 Object.assign(mf, { name: `${campus.appName} — ${campus.university}`, short_name: campus.appName, background_color: campus.brand.navy, theme_color: campus.brand.navy,

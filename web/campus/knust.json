@@ -1,0 +1,121 @@
+{
+  "id": "knust",
+  "appName": "KNUST Navigator",
+  "university": "Kwame Nkrumah University of Science and Technology",
+  "short": "KNUST",
+  "website": "https://www.knust.edu.gh",
+  "campusName": "Kumasi",
+  "osmName": "Kwame Nkrumah University of Science and Technology",
+  "timezone": "Africa/Accra",
+  "center": [
+    -1.57,
+    6.6785
+  ],
+  "zoom": 15.4,
+  "bounds": [
+    [
+      -1.592,
+      6.658
+    ],
+    [
+      -1.548,
+      6.7
+    ]
+  ],
+  "maxBounds": [
+    [
+      -1.72,
+      6.55
+    ],
+    [
+      -1.42,
+      6.8
+    ]
+  ],
+  "serviceArea": {
+    "minLat": 6.62,
+    "maxLat": 6.73,
+    "minLng": -1.63,
+    "maxLng": -1.51
+  },
+  "brand": {
+    "navy": "#0e2f24",
+    "gold": "#d4a017",
+    "accent": "#15803d",
+    "accentName": "Kumasi Green"
+  },
+  "api": {
+    "dataApiUrl": "https://ep-frosty-cherry-bdati34h.apirest.c-8.us-east-2.aws.neon.tech/neondb/rest/v1",
+    "apiUrl": "https://br-icy-cell-bdgwu010-api.compute.c-8.us-east-2.aws.neon.tech",
+    "vapidPublicKey": "BBh0bZuA-c0kltxtbdk6XZTnuwQzvUeE5YDFyyRl0wC3jhB8rcnvJigctn-G4T9kfWEjGTMTU_Xu0qyrA7T3siQ"
+  },
+  "grading": {
+    "mode": "cwa",
+    "maxPoint": 100,
+    "verified": false,
+    "sourceLabel": "student guides to the KNUST CWA system (not yet checked against the official KNUST handbook)",
+    "sourceUrl": "https://www.successafrica.info/?p=18272",
+    "grades": [
+      {
+        "g": "A",
+        "min": 70,
+        "max": 100,
+        "gp": 70,
+        "label": "Excellent"
+      },
+      {
+        "g": "B",
+        "min": 60,
+        "max": 69,
+        "gp": 60,
+        "label": "Very good"
+      },
+      {
+        "g": "C",
+        "min": 50,
+        "max": 59,
+        "gp": 50,
+        "label": "Good"
+      },
+      {
+        "g": "D",
+        "min": 40,
+        "max": 49,
+        "gp": 40,
+        "label": "Pass"
+      },
+      {
+        "g": "F",
+        "min": 0,
+        "max": 39,
+        "gp": 0,
+        "label": "Fail"
+      }
+    ],
+    "classes": [
+      {
+        "min": 70,
+        "name": "First Class"
+      },
+      {
+        "min": 60,
+        "name": "Second Class (Upper)"
+      },
+      {
+        "min": 50,
+        "name": "Second Class (Lower)"
+      },
+      {
+        "min": 40,
+        "name": "Pass"
+      },
+      {
+        "min": 0,
+        "name": "Fail"
+      }
+    ]
+  },
+  "languages": [
+    "en"
+  ]
+}
