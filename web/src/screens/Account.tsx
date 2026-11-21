@@ -217,8 +217,8 @@ export function Profile() {
         <a className="menu-item" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><b>GPA calculator</b><Icon name="chevron" /></a>
         <a className="menu-item" href="#/shuttles"><span className="cat-ic"><Icon name="bus" /></span><b>Shuttles{role === 'driver' ? ' · Driver mode' : ''}</b><Icon name="chevron" /></a>
         <InstallMenuItem />
-        <a className="menu-item" href="#/welcome"><span className="cat-ic"><Icon name="user" /></span><b>I am a…</b><span className="sub">Fresher, continuing, staff, visitor</span><Icon name="chevron" /></a>
-        {switchCampusHref() && <a className="menu-item" href={switchCampusHref()!}><span className="cat-ic"><Icon name="campus" /></span><b>Switch campus</b><span className="sub">{CAMPUS.short} · UG, KNUST, UCC</span><Icon name="chevron" /></a>}
+        <a className="menu-item" href="#/welcome"><span className="cat-ic"><Icon name="user" /></span><b>Who I am</b><span className="sub">Fresher, continuing, staff</span><Icon name="chevron" /></a>
+        {switchCampusHref() && <a className="menu-item" href={switchCampusHref()!}><span className="cat-ic"><Icon name="campus" /></span><b>Switch campus</b><span className="sub">Now: {CAMPUS.short}</span><Icon name="chevron" /></a>}
         <a className="menu-item danger" href="#/emergency"><span className="cat-ic"><Icon name="sos" /></span><b>Emergency contacts</b><Icon name="chevron" /></a>
       </div>
       <div style={{ marginTop: 12 }}><OfflineMapCard /></div>

@@ -1,8 +1,8 @@
-# Campus Navigator (UG · KNUST · UCC)
+# Campus Navigator (UG · KNUST · UHAS · UCC)
 
 Campus map, real walking directions, Fresher Hub, verified updates and an AI assistant. Mobile‑first PWA.
 Live at https://jlx-design.github.io/UG-campus--navigator/ — a front door asks “Which campus?” and opens that campus's
-own app (`/ug/`, `/knust/`, `/ucc/`). Each campus has its own database, accounts and server function; see
+own app (`/ug/`, `/knust/`, `/uhas/`, `/ucc/`). Each campus has its own database, accounts and server function; see
 `docs/NEW_CAMPUS.md`. Build the whole site with `cd web && node build-site.mjs ../site`.
 
 First launch asks who the person is (fresher, continuing, postgraduate, staff, visitor). Freshers get a first-year

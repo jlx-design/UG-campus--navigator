@@ -38,6 +38,15 @@ self.addEventListener('fetch', e => {
   if (LIB_HOSTS.includes(url.hostname) && url.pathname.includes('@')) {
     e.respondWith(caches.open(SHELL).then(async c => (await c.match(req)) || fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; })));
   }
+  // Web fonts: font files are immutable; the CSS is refreshed in the background. Lets the app keep its type offline.
+  if (url.hostname === 'fonts.gstatic.com' || url.hostname === 'fonts.googleapis.com') {
+    e.respondWith(caches.open('ugnav-fonts-v1').then(async c => {
+      const hit = await c.match(req);
+      const net = fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => hit);
+      return url.hostname === 'fonts.gstatic.com' ? (hit || net) : (hit ? (net, hit) : net);
+    }));
+    return;
+  }
   // Everything else (Data API, auth, server function, tiles): default network behaviour.
 });
 

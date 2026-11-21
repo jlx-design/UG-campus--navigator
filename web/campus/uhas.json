@@ -1,0 +1,154 @@
+{
+  "id": "uhas",
+  "appName": "UHAS Navigator",
+  "university": "University of Health and Allied Sciences",
+  "short": "UHAS",
+  "website": "https://www.uhas.edu.gh",
+  "campusName": "Ho",
+  "osmName": "University of Health and Allied Sciences",
+  "timezone": "Africa/Accra",
+  "center": [
+    0.4703,
+    6.6114
+  ],
+  "centerApproximate": true,
+  "zoom": 13.6,
+  "bounds": [
+    [
+      0.4,
+      6.55
+    ],
+    [
+      0.53,
+      6.66
+    ]
+  ],
+  "maxBounds": [
+    [
+      0.25,
+      6.4
+    ],
+    [
+      0.7,
+      6.82
+    ]
+  ],
+  "serviceArea": {
+    "minLat": 6.5,
+    "maxLat": 6.7,
+    "minLng": 0.36,
+    "maxLng": 0.56
+  },
+  "brand": {
+    "navy": "#0f2b46",
+    "gold": "#e3a72f",
+    "accent": "#0e7490",
+    "accentName": "Volta Teal"
+  },
+  "api": {
+    "dataApiUrl": "https://ep-silent-frog-beacouwq.apirest.c-9.us-east-2.aws.neon.tech/neondb/rest/v1",
+    "apiUrl": "https://br-holy-sea-beu3hte5-api.compute.c-9.us-east-2.aws.neon.tech",
+    "vapidPublicKey": "BB_o6BX7A9ldWZaGUjezo_B_adAjG7JkhMtxwKSlaxzyeCJntKwb6hTwTc7fDlSDnX58D-VGixR6YEs-gTCPB9g"
+  },
+  "grading": {
+    "mode": "gpa",
+    "maxPoint": 4,
+    "verified": false,
+    "sourceLabel": "UHAS Masters Students' Handbook (2025) grade points; undergraduate class boundaries not yet confirmed",
+    "sourceUrl": "https://uhas.edu.gh/uhas/sites/default/files/2026-02/UHAS%20MASTERS%20STUDENTS%20HAND%20BOOK%20-%20July%2015,%202025.pdf",
+    "grades": [
+      {
+        "g": "A",
+        "min": 80,
+        "max": 100,
+        "gp": 4.0,
+        "label": "Distinction"
+      },
+      {
+        "g": "B+",
+        "min": 75,
+        "max": 79,
+        "gp": 3.5,
+        "label": "Credit"
+      },
+      {
+        "g": "B",
+        "min": 70,
+        "max": 74,
+        "gp": 3.0,
+        "label": "Good"
+      },
+      {
+        "g": "C+",
+        "min": 65,
+        "max": 69,
+        "gp": 2.5,
+        "label": "Fairly good"
+      },
+      {
+        "g": "C",
+        "min": 60,
+        "max": 64,
+        "gp": 2.0,
+        "label": "Average"
+      },
+      {
+        "g": "D+",
+        "min": 55,
+        "max": 59,
+        "gp": 1.5,
+        "label": "Below average"
+      },
+      {
+        "g": "D",
+        "min": 50,
+        "max": 54,
+        "gp": 1.0,
+        "label": "Marginal pass"
+      },
+      {
+        "g": "E",
+        "min": 45,
+        "max": 49,
+        "gp": 0.5,
+        "label": "Unsatisfactory"
+      },
+      {
+        "g": "F",
+        "min": 0,
+        "max": 44,
+        "gp": 0.0,
+        "label": "Fail"
+      }
+    ],
+    "classes": [
+      {
+        "min": 3.6,
+        "name": "First Class"
+      },
+      {
+        "min": 3.0,
+        "name": "Second Class (Upper)"
+      },
+      {
+        "min": 2.5,
+        "name": "Second Class (Lower)"
+      },
+      {
+        "min": 2.0,
+        "name": "Third Class"
+      },
+      {
+        "min": 1.0,
+        "name": "Pass"
+      },
+      {
+        "min": 0,
+        "name": "Fail"
+      }
+    ]
+  },
+  "languages": [
+    "en"
+  ]
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CAMPUS_BOUNDS, CAMPUS_CENTER, CAMPUS_ZOOM, CONFIG, MAX_BOUNDS } from '../config';
+import { CAMPUS, CAMPUS_BOUNDS, CAMPUS_CENTER, CAMPUS_ZOOM, CONFIG, MAX_BOUNDS } from '../config';
 import { useStore } from '../store';
 import { resolvedMapStyle } from '../theme';
 import { iconSvgString } from './Icon';
@@ -51,6 +51,18 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
   const [failed, setFailed] = useState<string | null>(null);
   const styleName = resolvedMapStyle(prefs);
   const routeCoords = useRef<number[][]>([]);
+  // Bounds of the directory's places: "Back to campus" frames the real campus once places exist. Campuses whose
+  // centre isn't confirmed (centerApproximate) start framed on the town and re-frame to the places when they load.
+  const dirBounds = useRef<[[number, number], [number, number]] | null>(null);
+  const fittedOnce = useRef(false);
+  useEffect(() => {
+    const pts = locations.filter(l => l.id !== 'pin');
+    if (pts.length < 3) { dirBounds.current = null; return; }
+    const lngs = pts.map(l => l.lng).sort((a, b) => a - b), lats = pts.map(l => l.lat).sort((a, b) => a - b);
+    const q = (a: number[], p: number) => a[Math.min(a.length - 1, Math.max(0, Math.round(p * (a.length - 1))))];
+    dirBounds.current = [[q(lngs, 0.02), q(lats, 0.02)], [q(lngs, 0.98), q(lats, 0.98)]]; // trim outliers
+    if ((CAMPUS as any).centerApproximate && !fittedOnce.current && map.current) { fittedOnce.current = true; map.current.fitBounds(dirBounds.current, { padding: 40, maxZoom: 17, duration: 0 }); }
+  }, [locations, ready]);
   const latest = useRef({ pickingOrigin, select, setOrigin, setPickingOrigin, setPin: s.setPin, navigating });
   latest.current = { pickingOrigin, select, setOrigin, setPickingOrigin, setPin: s.setPin, navigating };
 
@@ -107,7 +119,7 @@ export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef:
       },
       flyTo: (p, z = 17.5) => m.flyTo({ center: [p[1], p[0]], zoom: Math.max(m.getZoom(), z), duration: prefs.reduceMotion ? 0 : 900, essential: true }),
       fitRoute: () => { m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }); const c = routeCoords.current; if (c.length) { const b = c.reduce((bb: any, p: any) => bb.extend(p), new maplibregl.LngLatBounds(c[0], c[0])); m.fitBounds(b, { padding: { top: 170, bottom: 320, left: 50, right: 50 }, maxZoom: 18, bearing: 0, pitch: 0, duration: 800 }); } },
-      home: () => m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }) && m.fitBounds(CAMPUS_BOUNDS, { padding: 20, duration: 800 }),
+      home: () => m.setPadding({ top: 0, bottom: 0, left: 0, right: 0 }) && m.fitBounds(dirBounds.current || CAMPUS_BOUNDS, { padding: 40, maxZoom: 17, duration: 800 }),
       toggle3d: () => { const on = m.getPitch() < 10; m.easeTo({ pitch: on ? 55 : 0, duration: 600 }); return on; },
       resetNorth: () => m.easeTo({ bearing: 0, pitch: 0, duration: 500 }),
       bearing: () => m.getBearing(), pitch: () => m.getPitch(),

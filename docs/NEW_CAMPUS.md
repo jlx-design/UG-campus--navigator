@@ -59,4 +59,5 @@ opening hours, emergency numbers, shuttle routes and guide content — each with
 | UG (Legon) | icy-cloud-48010088 | br-ancient-sun-bhowhjub-api… (eu-central-1) | 4.0 GPA, official AQAU source |
 | KNUST (Kumasi) | lucky-haze-89979535 | br-icy-cell-bdgwu010-api… (us-east-2) | CWA, student-guide source — verify |
 | UCC (Cape Coast) | proud-moon-85036664 | br-nameless-feather-bdrnozl3-api… (us-east-2) | 4.0 GPA, student-guide source — verify |
+| UHAS (Ho) | hidden-violet-20733710 | br-holy-sea-beu3hte5-api… (us-east-2) | 4.0 GPA from the official masters handbook; undergraduate class boundaries — verify. Map centre approximate (`centerApproximate`): it re-frames to the directory after the OpenStreetMap import |
 - Satellite imagery (Esri) has licence terms for commercial products — check before selling.
