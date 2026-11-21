@@ -1,0 +1,1 @@
+import{c as a,x as o}from"./chunk-PDOYZLNL.js";a();var p=new Map;function s(t,e=""){let n=`${t}|${e}`,r=Date.now();r-(p.get(n)||0)<6e4||(p.set(n,r),o("bump",{p_event:t,p_key:e}).catch(()=>{}))}export{s as a};

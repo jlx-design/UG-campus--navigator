@@ -518,3 +518,69 @@ textarea.input { min-height: 100px; resize: vertical; }
 .sos-card.personal .call-btn { background: var(--accent); box-shadow: none; }
 /* A dialog must sit above the tab bar and AI button (pages form their own stacking context). */
 body:has(.modal-back) .bottom-nav, body:has(.modal-back) .ai-fab { display: none; }
+
+/* ── Section tabs (Schedule / Updates) ─────────────── */
+.sched-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: var(--r-m); background: var(--surface-2); margin-bottom: 14px; }
+.sched-tabs a { display: flex; align-items: center; justify-content: center; gap: 6px; height: 42px; border-radius: var(--r-s); text-decoration: none; color: var(--text-2); font-weight: 750; font-size: .88rem; }
+.sched-tabs a svg { width: 17px; height: 17px; }
+.sched-tabs a[aria-current="page"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-s); }
+.reminders { margin-bottom: 14px; }
+.reminders b { font-size: .95rem; }
+.rem-opts { margin-top: 10px; border-top: 1px solid var(--line); }
+
+/* ── Exams ─────────────────────────────────────────── */
+.exam-list { display: flex; flex-direction: column; gap: 10px; }
+.exam-card { display: flex; gap: 14px; padding: 14px; border-radius: var(--r-m); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-s); }
+.exam-card.next { border: 2px solid var(--accent); }
+.exam-card.live { border-color: var(--danger); }
+.exam-count { flex: none; width: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: var(--r-s); background: var(--accent-soft); color: var(--accent); text-align: center; padding: 8px 4px; }
+.exam-card.live .exam-count { background: var(--danger-soft); color: var(--danger); }
+.exam-count b { font-size: 1.15rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.exam-count span { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+.exam-body { flex: 1; min-width: 0; }
+.exam-code { font-size: 1.1rem; }
+.exam-meta { display: flex; align-items: center; gap: 6px; font-size: .84rem; color: var(--text-2); margin-top: 3px; }
+.exam-meta svg { width: 14px; height: 14px; color: var(--text-3); }
+
+/* ── Events ────────────────────────────────────────── */
+.event-card { display: flex; gap: 14px; padding: 14px; border-radius: var(--r-m); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-s); }
+.event-card.cancelled { opacity: .6; }
+.event-card.cancelled h3 { text-decoration: line-through; }
+.event-time { flex: none; width: 64px; display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.event-time b { font-size: .95rem; }
+.event-time span { font-size: .75rem; color: var(--text-3); }
+.event-desc { margin: 6px 0 0; font-size: .88rem; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ── Place card extras ─────────────────────────────── */
+.room-callout { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 4px; padding: 10px 12px; border-radius: var(--r-s); background: var(--accent-soft); }
+.room-callout svg { width: 20px; height: 20px; color: var(--accent); margin-top: 2px; }
+.room-callout div { display: flex; flex-direction: column; }
+.room-callout span { font-size: .84rem; color: var(--text-2); }
+.room-ic { background: color-mix(in srgb, #7c3aed 14%, transparent); color: #7c3aed; }
+.listing-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.hours { margin-top: 8px; }
+.hours-state { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; cursor: pointer; font-weight: 700; font-size: .88rem; }
+.hours-state svg { width: 15px; height: 15px; }
+.hours-state.open { color: var(--ok); } .hours-state.closed { color: var(--danger); }
+.hours-table { margin-top: 6px; font-size: .84rem; }
+.hours-table > div { display: flex; gap: 10px; padding: 3px 0; }
+.hours-table > div span:first-child { width: 36px; color: var(--text-3); font-weight: 700; }
+.hours-table > div.today { font-weight: 700; }
+
+/* ── Walk with me ──────────────────────────────────── */
+.follow-card { position: absolute; z-index: 950; left: 10px; right: 10px; bottom: calc(var(--nav-h) + 22px + var(--safe-b)); max-width: 540px; margin: 0 auto; border-radius: var(--r-l); padding: 14px 16px; }
+.follow-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-3); flex: none; }
+.follow-dot.live { background: var(--ok); color: var(--ok); animation: pulse 1.6s infinite; }
+.me.friend .me-dot { background: #e11d48; animation: none; }
+.me.friend .me-cone { background: radial-gradient(60% 100% at 50% 100%, rgb(225 29 72 / .45), transparent 70%); }
+.friend-name { position: absolute; top: 26px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #e11d48; color: #fff; }
+.sharing-pill { position: absolute; z-index: 955; left: 50%; transform: translateX(-50%); bottom: calc(96px + var(--safe-b)); display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: var(--r-pill); font-weight: 700; font-size: .82rem; white-space: nowrap; }
+.sharing-pill .link-btn { color: var(--danger); }
+
+/* ── Offline map, insights ─────────────────────────── */
+.offline-card .progress > i { background: var(--accent); }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; margin-top: 8px; }
+.bars > div { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.bars i { display: block; width: 100%; min-height: 2px; border-radius: 3px 3px 0 0; background: var(--accent); }
+.rank { margin: 6px 0 0; padding-left: 20px; }
+.rank li { padding: 4px 0; } .rank li span { display: inline-block; max-width: 75%; } .rank li b { float: right; font-variant-numeric: tabular-nums; }
