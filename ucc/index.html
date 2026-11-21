@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>UCC Navigator — University of Cape Coast campus map, timetable & guide</title>
+  <meta name="description" content="Live 3D campus map, walking directions, lecture timetable, shuttles, emergency contacts and an AI campus guide for University of Cape Coast." />
+  <meta name="theme-color" content="#1a1446" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="UCC Navigator" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="" />
+  <!-- Apply saved appearance before first paint (no flash of the wrong theme). -->
+  <script>
+    (function () { try {
+      var p = JSON.parse(localStorage.getItem('ugnav.ucc.prefs.v1') || '{}'), m = p.mode || 'system', r = document.documentElement;
+      var d = m === 'dark' || m === 'amoled' || (m === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+      r.dataset.theme = d ? 'dark' : 'light'; r.dataset.amoled = String(m === 'amoled');
+      r.dataset.surface = p.surface || 'glass'; r.dataset.radius = p.radius || 'round';
+      if (p.accent) r.style.setProperty('--accent', p.accent);
+      if (p.textScale) r.style.setProperty('--text-scale', p.textScale);
+    } catch (e) {} })();
+  </script>
+  <link rel="stylesheet" href="./app.css" />
+</head>
+<body>
+  <noscript>UCC Navigator needs JavaScript to show the map.</noscript>
+  <div id="root"></div>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

@@ -1,40 +1,68 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>UG Navigator — University of Ghana campus map, timetable & guide</title>
-  <meta name="description" content="Live 3D campus map, walking directions, lecture timetable, shuttles, emergency contacts and an AI campus guide for University of Ghana." />
-  <meta name="theme-color" content="#0b1b3a" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="UG Navigator" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="./icons/icon-192.png" type="image/png" />
-  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
-  <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" crossorigin="" />
-  <!-- Apply saved appearance before first paint (no flash of the wrong theme). -->
-  <script>
-    (function () { try {
-      var p = JSON.parse(localStorage.getItem('ugnav.prefs.v1') || '{}'), m = p.mode || 'system', r = document.documentElement;
-      var d = m === 'dark' || m === 'amoled' || (m === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-      r.dataset.theme = d ? 'dark' : 'light'; r.dataset.amoled = String(m === 'amoled');
-      r.dataset.surface = p.surface || 'glass'; r.dataset.radius = p.radius || 'round';
-      if (p.accent) r.style.setProperty('--accent', p.accent);
-      if (p.textScale) r.style.setProperty('--text-scale', p.textScale);
-    } catch (e) {} })();
-  </script>
-  <link rel="stylesheet" href="./app.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Campus Navigator — choose your campus</title>
+<meta name="description" content="Campus maps, step-by-step walking directions, timetable, GPA and an AI campus guide for UG, KNUST and UCC.">
+<meta name="theme-color" content="#0b1b3a">
+<link rel="icon" href="ug/icons/icon-192.png">
+<style>
+  :root { color-scheme: light dark; --bg: #f5f6fa; --card: #fff; --text: #0f172a; --text-2: #475569; --line: #e2e8f0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #0b1020; --card: #141a2e; --text: #e8ecf5; --text-2: #a3adc2; --line: #243052; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text);
+    display: grid; place-items: center; padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); }
+  main { width: 100%; max-width: 520px; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -.01em; }
+  p.lede { margin: 0 0 22px; color: var(--text-2); }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  a.campus { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 18px; background: var(--card); border: 1px solid var(--line);
+    color: inherit; text-decoration: none; box-shadow: 0 1px 2px rgb(0 0 0 / .05); transition: transform .15s ease, border-color .15s ease; }
+  a.campus:hover { border-color: var(--c); transform: translateY(-1px); }
+  a.campus:focus-visible { outline: 3px solid var(--c); outline-offset: 2px; }
+  .mark { width: 52px; height: 52px; flex: none; border-radius: 14px; overflow: hidden; background: var(--c); }
+  .mark img { width: 100%; height: 100%; display: block; }
+  .txt { flex: 1; min-width: 0; }
+  .txt b { display: block; font-size: 1.05rem; }
+  .txt span { color: var(--text-2); font-size: .9rem; }
+  .chev { color: var(--text-2); font-size: 1.4rem; }
+  .last { font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--c) 18%, transparent); margin-left: 6px; vertical-align: 2px; }
+  .note { margin-top: 22px; font-size: .85rem; color: var(--text-2); }
+  @media (prefers-reduced-motion: reduce) { a.campus { transition: none; } }
+</style>
 </head>
 <body>
-  <noscript>UG Navigator needs JavaScript to show the map.</noscript>
-  <div id="root"></div>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
-  <script type="module" src="./app.js"></script>
+<main>
+  <h1>Which campus are you on?</h1>
+  <p class="lede">Each university has its own app with its own map, guide and accounts. We'll remember your choice.</p>
+  <ul id="list"><li><a class="campus" data-id="ug" href="./ug/" style="--c:#0b1b3a"><span class="mark"><img src="./ug/icons/icon-192.png" alt="" width="52" height="52"></span><span class="txt"><b>UG</b><span>University of Ghana · Legon</span></span><span class="chev" aria-hidden="true">›</span></a></li>
+    <li><a class="campus" data-id="knust" href="./knust/" style="--c:#0e2f24"><span class="mark"><img src="./knust/icons/icon-192.png" alt="" width="52" height="52"></span><span class="txt"><b>KNUST</b><span>Kwame Nkrumah University of Science and Technology · Kumasi</span></span><span class="chev" aria-hidden="true">›</span></a></li>
+    <li><a class="campus" data-id="ucc" href="./ucc/" style="--c:#1a1446"><span class="mark"><img src="./ucc/icons/icon-192.png" alt="" width="52" height="52"></span><span class="txt"><b>UCC</b><span>University of Cape Coast · Cape Coast</span></span><span class="chev" aria-hidden="true">›</span></a></li></ul>
+  <p class="note">You can switch later from Me → Switch campus. This is an independent student project, not an official service of these universities.</p>
+</main>
+<script>
+(function () {
+  var KEY = 'ugnav.campus';
+  var ids = ["ug","knust","ucc"];
+  var qs = new URLSearchParams(location.search);
+  var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) {}
+  var hash = location.hash;
+  // The UG app used to live at this address. Old installs: retire that service worker so it stops serving the old app.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(function (rs) {
+    rs.forEach(function (r) { if (new URL(r.scope).pathname === location.pathname.replace(/index\.html$/, '')) r.unregister(); });
+  }).catch(function () {});
+  function go(id) { try { localStorage.setItem(KEY, id); } catch (e) {} location.replace('./' + id + '/' + (hash || '')); }
+  if (!qs.has('choose')) {
+    if (saved && ids.indexOf(saved) >= 0) return go(saved);
+    // Links shared before the campus split (e.g. #/follow/…, #/reset-password) belong to UG.
+    if (hash && hash.length > 2) return go('ug');
+  }
+  if (saved) { var cur = document.querySelector('a[data-id="' + saved + '"] .txt b'); if (cur) cur.insertAdjacentHTML('beforeend', '<span class="last">Current</span>'); }
+  document.getElementById('list').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-id]'); if (!a) return; e.preventDefault(); hash = ''; go(a.getAttribute('data-id'));
+  });
+})();
+</script>
 </body>
 </html>
