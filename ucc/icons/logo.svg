@@ -1,11 +1,2 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><clipPath id="t"><rect width="512" height="512" rx="112"/></clipPath></defs>
-  <g clip-path="url(#t)"><rect width="512" height="512" fill="#1a1446"/><g transform="">
-<path d="M256 150 L 470 96 V 204 Z M256 150 L 42 96 V 204 Z" fill="#ffffff" opacity=".16"/>
-<path d="M222 352 L 236 182 H 276 L 290 352 Z" fill="#e0a526"/>
-<path d="M226 300 H 286 M231 244 H 281" stroke="#1a1446" stroke-width="14"/>
-<path d="M214 182 H 298 L 286 160 H 226 Z" fill="#e0a526"/>
-<circle cx="256" cy="130" r="30" fill="#ffffff"/>
-<path d="M226 104 Q 256 70 286 104" fill="#e0a526"/>
-<path d="M56 380 C 96 356, 136 356, 176 380 S 256 404, 296 380 S 376 356, 456 380" fill="none" stroke="#e0a526" stroke-width="22" stroke-linecap="round"/>
-<path d="M96 430 C 136 406, 176 406, 216 430 S 296 454, 336 430 S 396 412, 416 418" fill="none" stroke="#e0a526" stroke-width="22" stroke-linecap="round" opacity=".55"/>
-</g></g></svg>
+  <g clip-path="url(#t)"><rect width="512" height="512" fill="#1a1446"/><g transform=""><g transform="translate(256 262) scale(.92)"><path d="M0-190c-80 0-140 60-140 138C-140 50 0 170 0 170S140 50 140-52c0-78-60-138-140-138Z" fill="#e0a526"/><circle cx="0" cy="-52" r="58" fill="#1a1446"/><path d="M0-98 18-52 0-6-18-52Z" fill="#ffffff"/></g></g></g></svg>
