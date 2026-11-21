@@ -1,0 +1,4 @@
+<!-- UHAS, Ho: a heartbeat line that rises into the hills around Ho (health sciences). -->
+<path d="M0 512 V 380 L 120 300 L 190 350 L 286 230 L 352 300 L 400 262 L 512 360 V 512 Z" fill="{DOT}" opacity=".1"/>
+<path d="M56 320 H 150 L 186 256 L 228 384 L 286 128 L 336 320 H 456" fill="none" stroke="{FG}" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="286" cy="126" r="32" fill="{DOT}" stroke="{BG}" stroke-width="12"/>
