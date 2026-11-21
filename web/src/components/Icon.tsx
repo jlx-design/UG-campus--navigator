@@ -1,0 +1,86 @@
+import React from 'react';
+
+// Stroke icon set (24×24, 1.8px), drawn for this app.
+const P: Record<string, string> = {
+  map: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14',
+  navigate: 'M12 2 4.5 20.3l.7.7L12 18l6.8 3 .7-.7L12 2Z',
+  hub: 'M3 10.5 12 4l9 6.5M5 9.5V20h14V9.5M9.5 20v-6h5v6',
+  bell: 'M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Zm4 10.5a2 2 0 0 0 4 0',
+  user: 'M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm-8 9a8 8 0 0 1 16 0',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Zm9 3-4-4',
+  close: 'M6 6l12 12M18 6 6 18',
+  locate: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm0-6v3m0 14v3M2 12h3m14 0h3',
+  campus: 'M4 20V10l8-5 8 5v10M9 20v-5h6v5',
+  layers: 'm12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5',
+  chat: 'M4 5h16v11H8l-4 4V5Zm4 5h8M8 13h5',
+  sparkle: 'M12 3v4m0 10v4M3 12h4m10 0h4M6 6l2.5 2.5m7 7L18 18M6 18l2.5-2.5m7-7L18 6',
+  star: 'm12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z',
+  starFill: 'm12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z',
+  walk: 'M13 4.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM9 22l2-6 2.5 2v4m-1-9.5L14 9l3 3h3M11 8l-3 1.5V13m3.5-4.5L10 14',
+  check: 'm5 12.5 4.5 4.5L19 7.5',
+  info: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-11v6m0-9.5v.5',
+  alert: 'M12 3 2 20h20L12 3Zm0 6v5m0 3v.5',
+  shield: 'M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Zm-3.5 9 2.5 2.5 4.5-4.5',
+  external: 'M14 4h6v6m0-6-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
+  arrowLeft: 'M19 12H5m6-7-7 7 7 7',
+  chevron: 'm9 6 6 6-6 6',
+  send: 'M4 12 20 4l-6 16-2.5-6.5L4 12Z',
+  flag: 'M5 21V4m0 0h11l-2 4 2 4H5',
+  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7.4-3a7.4 7.4 0 0 0-.1-1.3l2-1.6-2-3.4-2.4 1a7.3 7.3 0 0 0-2.2-1.3L14.4 3h-4l-.4 2.4a7.3 7.3 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.6a7.4 7.4 0 0 0 0 2.6l-2 1.6 2 3.4 2.4-1a7.3 7.3 0 0 0 2.2 1.3l.4 2.4h4l.4-2.4a7.3 7.3 0 0 0 2.2-1.3l2.4 1 2-3.4-2-1.6c.1-.4.1-.9.1-1.3Z',
+  logout: 'M15 4h4v16h-4M10 8l-4 4 4 4m-4-4h10',
+  plus: 'M12 5v14M5 12h14',
+  trash: 'M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13',
+  edit: 'M4 20h4L19 9l-4-4L4 16v4Z',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0-14v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4m0-14.2-1.4 1.4M6.3 17.7l-1.4 1.4',
+  moon: 'M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z',
+  link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
+  book: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Zm0 14a2 2 0 0 1 2-2h13',
+  list: 'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
+  refresh: 'M20 11a8 8 0 0 0-14.9-3M4 4v4h4m-4 5a8 8 0 0 0 14.9 3M20 20v-4h-4',
+  // Categories
+  school: 'M2 9.5 12 4l10 5.5-10 5.5L2 9.5Zm4 2.3V17c0 1.5 2.7 3 6 3s6-1.5 6-3v-5.2',
+  lecture: 'M3 4h18v11H3V4Zm9 11v5m-4 0h8M7 8h6',
+  library: 'M5 4v16M9 4v16M13.5 4.5l4.5 15.5M3 20h18',
+  admin: 'M4 21V7l8-4 8 4v14M8 10h2m4 0h2M8 14h2m4 0h2M10 21v-3h4v3',
+  hall: 'M3 21V9l9-6 9 6v12M7 21v-7h10v7M7 11h.01M17 11h.01',
+  services: 'M12 21s-8-4.6-8-11a5 5 0 0 1 8-4 5 5 0 0 1 8 4c0 6.4-8 11-8 11Z',
+  health: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-13v8m-4-4h8',
+  sports: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9.5c5 1 12 1 17 0M3.5 14.5c5-1 12-1 17 0M12 3c-3 5-3 13 0 18m0-18c3 5 3 13 0 18',
+  food: 'M7 3v8a2 2 0 0 0 2 2v8M7 3v5m4-5v5a2 2 0 0 1-2 2m8-7c-2 0-3 2-3 5s1 4 3 4v9',
+  worship: 'M12 2v4m-2-2h4M6 22V12l6-4 6 4v10M10 22v-5h4v5',
+  bank: 'M3 10 12 4l9 6M5 10v8m4.5-8v8m5-8v8M19 10v8M3 21h18',
+  transport: 'M6 17V6a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3v11M6 12h12M8 20v-3m8 3v-3M9 15h.01M15 15h.01',
+  pin: 'M12 21s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12Zm0-9.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z',
+  // Maneuvers (OpenRouteService step types)
+  turnLeft: 'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v5',
+  turnRight: 'm15 14 5-5-5-5m5 5H10a6 6 0 0 0-6 6v5',
+  straight: 'M12 20V4m-6 6 6-6 6 6',
+  uturn: 'M8 20V9a5 5 0 0 1 10 0v4m-4-3 4 4 4-4',
+  arrive: 'M12 21s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12Zm-3-12 2 2 4-4',
+};
+
+export function Icon({ name, title, ...rest }: { name: string; title?: string } & React.SVGProps<SVGSVGElement>) {
+  const d = P[name] || P.pin;
+  const filled = name === 'starFill';
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.8}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden={title ? undefined : true} role={title ? 'img' : undefined} {...rest}>
+      {title ? <title>{title}</title> : null}
+      <path d={d} />
+    </svg>
+  );
+}
+
+export const iconSvgString = (name: string) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[name] || P.pin}"/></svg>`;
+
+/** ORS step type → icon. https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/instruction-types */
+export function maneuverIcon(type: number): string {
+  switch (type) {
+    case 0: case 2: case 4: case 12: return 'turnLeft';
+    case 1: case 3: case 5: case 13: return 'turnRight';
+    case 9: return 'uturn';
+    case 10: return 'arrive';
+    default: return 'straight';
+  }
+}

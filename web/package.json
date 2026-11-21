@@ -1,0 +1,21 @@
+{
+  "name": "ug-campus-navigator",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p .",
+    "serve": "python3 -m http.server 8765 --directory dist"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "sharp": "^0.35.0",
+    "typescript": "^6.0.0",
+    "playwright": "^1.63.0"
+  }
+}
