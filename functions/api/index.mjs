@@ -101,6 +101,22 @@ const inArea = ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) &&
   lat >= AREA.minLat && lat <= AREA.maxLat && lng >= AREA.minLng && lng <= AREA.maxLng;
 
 // ───────────── /route ─────────────
+// openrouteservice moved to api.heigit.org (api.openrouteservice.org is deprecated); fall back to the old host if the new one is unreachable or rejects the key.
+const ORS_HOSTS = ['https://api.heigit.org/openrouteservice', 'https://api.openrouteservice.org'];
+async function orsFetch(from, to) {
+  let last = null;
+  for (const host of ORS_HOSTS) {
+    const r = await fetch(`${host}/v2/directions/foot-walking/geojson`, {
+      method: 'POST',
+      headers: { Authorization: env.ORS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/geo+json' },
+      body: JSON.stringify({ coordinates: [[from[1], from[0]], [to[1], to[0]]], instructions: true, units: 'm', language: 'en', radiuses: [150, 150] }),
+      signal: AbortSignal.timeout(12000),
+    }).catch(() => null);
+    if (r && r.status !== 401 && r.status !== 403) return r;
+    last = r;
+  }
+  return last;
+}
 async function route(req) {
   if (!env.ORS_API_KEY) return fail(req, 503, 'routing_not_configured', 'Walking directions are not configured on the server yet.');
   const user = await getUser(req);
@@ -108,12 +124,7 @@ async function route(req) {
   const { from, to } = await readJson(req, 2000);
   if (!Array.isArray(from) || !Array.isArray(to) || !inArea(from) || !inArea(to))
     return fail(req, 400, 'invalid_coordinates', 'Start and destination must be within the Legon campus area.');
-  const r = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking/geojson', {
-    method: 'POST',
-    headers: { Authorization: env.ORS_API_KEY, 'Content-Type': 'application/json', Accept: 'application/geo+json' },
-    body: JSON.stringify({ coordinates: [[from[1], from[0]], [to[1], to[0]]], instructions: true, units: 'm', language: 'en', radiuses: [150, 150] }),
-    signal: AbortSignal.timeout(12000),
-  }).catch(() => null);
+  const r = await orsFetch(from, to);
   if (!r) return fail(req, 504, 'routing_timeout', 'The routing service did not respond. Please try again.');
   const body = await r.json().catch(() => ({}));
   if (!r.ok) {
@@ -451,45 +462,19 @@ async function anonToken(req) {
   return json(req, 200, { token: anonCache.token, exp: anonCache.exp });
 }
 
-// End-to-end self test (sign-up → JWT → Data API → cleanup). Enabled only while SELFTEST_KEY is set.
-async function selfTest(req) {
-  const key = new URL(req.url).searchParams.get('key');
-  if (!env.SELFTEST_KEY || key !== env.SELFTEST_KEY) return fail(req, 404, 'not_found', 'Unknown endpoint.');
-  const out = {}; const email = `ugnav.selftest+${Date.now()}@example.com`;
-  const fakeReq = new Request('https://x/', { headers: { origin: ALLOWED_ORIGINS[0] } });
-  try {
-    const pw = 'Selftest-' + crypto.randomUUID();
-    const up = await authCall(fakeReq, '/sign-up/email', { method: 'POST', body: { name: 'Self Test', email, password: pw } });
-    out.signup_status = up.r.status; out.signup_code = up.data?.code || null; out.signup_cookies = up.setCookies.length;
-    const blocked = await authCall(fakeReq, '/sign-in/email', { method: 'POST', body: { email, password: pw } });
-    out.unverified_signin_status = blocked.r.status; out.unverified_signin_code = blocked.data?.code || null;
-    await sql(`update neon_auth."user" set "emailVerified" = true where email = $1`, [email]);
-    const si = await authCall(fakeReq, '/sign-in/email', { method: 'POST', body: { email, password: pw } });
-    out.signin_status = si.r.status;
-    const bundle = si.r.ok ? await sessionBundle(fakeReq, cookieString(si.setCookies)) : null;
-    out.role = bundle?.role || null;
-    if (bundle) { const again = await sessionBundle(fakeReq, bundle.session); out.session_refresh_ok = !!again?.jwt; }
-    out.session_ok = !!bundle; out.jwt_ok = !!bundle?.jwt;
-    if (bundle?.jwt) {
-      const base = env.DATA_API_URL;
-      const q = await fetch(`${base}/saved_places?select=location_id`, { headers: { Authorization: 'Bearer ' + bundle.jwt } });
-      out.data_api_user_status = q.status;
-      const ins = await fetch(`${base}/courses`, { method: 'POST', headers: { Authorization: 'Bearer ' + bundle.jwt, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ code: 'TEST101' }) });
-      out.course_insert_status = ins.status;
-      const loc = await fetch(`${base}/locations`, { method: 'POST', headers: { Authorization: 'Bearer ' + bundle.jwt, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'x', category: 'other', lat: 5.65, lng: -0.19, source_label: 't' }) });
-      out.ordinary_user_location_insert_status = loc.status;
-    }
-    const an = await authCall(fakeReq, '/token/anonymous');
-    if (an.data?.token) {
-      const q = await fetch(`${env.DATA_API_URL}/emergency_contacts?select=name`, { headers: { Authorization: 'Bearer ' + an.data.token } });
-      out.data_api_anon_status = q.status; out.anon_rows = q.ok ? (await q.json()).length : null;
-      const s = await fetch(`${env.DATA_API_URL}/saved_places?select=location_id`, { headers: { Authorization: 'Bearer ' + an.data.token } });
-      out.anon_private_table_status = s.status;
-    }
-  } catch (e) { out.error = e.message; }
-  finally { await sql(`delete from neon_auth."user" where email = $1`, [email]).then(() => { out.cleanup = 'deleted'; }).catch(e => { out.cleanup = 'failed: ' + e.message; }); }
-  return json(req, 200, out);
+// Live routing probe: one fixed walk across central Legon, to confirm the routing key works. Globally rate-limited.
+async function routeCheck(req) {
+  if (!env.ORS_API_KEY) return json(req, 200, { routing: 'not configured' });
+  if (!(await rateLimit('route-check:global', 20))) return fail(req, 429, 'rate_limited', 'Try again later.');
+  const t0 = Date.now(); const r = await orsFetch([5.6505, -0.1870], [5.6520, -0.1860]);
+  if (!r) return json(req, 200, { routing: 'unreachable' });
+  const body = await r.json().catch(() => ({}));
+  const f = body?.features?.[0];
+  return json(req, 200, { routing: r.ok ? 'ok' : 'error', status: r.status, host: r.url.split('/v2')[0], ms: Date.now() - t0,
+    distance_m: f?.properties?.summary?.distance ?? null, steps: f?.properties?.segments?.[0]?.steps?.length ?? null,
+    points: f?.geometry?.coordinates?.length ?? null, error: r.ok ? null : (body?.error?.message || body?.error || null) });
 }
+
 
 // ───────────── /health ─────────────
 async function health(req) {
@@ -513,7 +498,7 @@ export default {
       if (req.method === 'GET' && (path === '/' || path === '/health')) return await health(req);
       if (req.method === 'POST' && path.startsWith('/auth/')) return await authRoute(req, path);
       if (req.method === 'GET' && path === '/auth/anonymous-token') return await anonToken(req);
-      if (req.method === 'GET' && path === '/selftest') return await selfTest(req);
+      if (req.method === 'GET' && path === '/route-check') return await routeCheck(req);
       if (req.method === 'POST' && path === '/route') return await route(req);
       if (req.method === 'POST' && path === '/assistant') return await assistant(req);
       if (req.method === 'POST' && path === '/admin/import-osm') return await importOsm(req);
