@@ -71,6 +71,8 @@ const P: Record<string, string> = {
   slightRight: 'M17 9V4h-5m5 0-7 7a4 4 0 0 0-1 2.6V21',
   volume: 'M4 9v6h4l5 4V5L8 9H4Zm12.5-.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12',
   volumeOff: 'M4 9v6h4l5 4V5L8 9H4Zm12 1 5 5m0-5-5 5',
+  calc: 'M6 3h12v18H6V3Zm2.5 3h7v3h-7V6Zm0 6.5h.01m3.5 0h.01m3.5 0h.01M8.5 16h.01m3.5 0h.01m3.5 0h.01',
+  idcard: 'M3 6h18v12H3V6Zm5 3.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM5.5 16a2.5 2.5 0 0 1 5 0M13 10h5m-5 3h4',
   download: 'M12 3v12m-5-5 5 5 5-5M4 21h16',
   share: 'M12 3v12M8 7l4-4 4 4M5 12v8h14v-8',
   plusSquare: 'M4 4h16v16H4V4Zm8 4v8m-4-4h8',

@@ -1,4 +1,5 @@
 import { InstallMenuItem } from '../components/Install';
+import { useDetails, levelLabel } from './Details';
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { db } from '../lib/api';
@@ -182,6 +183,7 @@ export function Profile() {
   const savePref = async (patch: Record<string, unknown>) => {
     try { await db('profiles', `user_id=eq.${user!.id}`, { method: 'PATCH', body: patch, prefer: 'return=minimal' }); toast('Saved'); } catch (e: any) { toast(e.message, 'error'); }
   };
+  const details = useDetails();
   const savedList = [...saved].map(id => byId.get(id)).filter(Boolean);
   const initials = (user?.name || user?.email || '?').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   return (
@@ -190,7 +192,8 @@ export function Profile() {
       {!authReady ? <p className="lede">Checking your session…</p> : user ? (
         <div className="profile-card">
           <div className="avatar">{initials}</div>
-          <div style={{ minWidth: 0, flex: 1 }}><b>{user.name || 'Your account'}</b><div className="sub">{user.email}</div>
+          <div style={{ minWidth: 0, flex: 1 }}><b>{details?.display_name || user.name || 'Your account'}</b><div className="sub">{user.email}</div>
+            {details && (details.programme || details.level || details.hall_name || details.hall_location_id) && <div className="sub" style={{ marginTop: 2 }}>{[levelLabel(details.level), details.programme, details.hall_location_id ? byId.get(details.hall_location_id)?.name : details.hall_name].filter(Boolean).join(' · ')}</div>}
             {role !== 'user' && <span className="tag brand" style={{ marginTop: 4 }}><Icon name="shield" />{role === 'admin' ? 'Administrator' : role === 'editor' ? 'Editor' : 'Shuttle driver'}</span>}</div>
           <button className="icon-btn" aria-label="Sign out" onClick={() => signOut().then(() => toast('Signed out'))}><Icon name="logout" /></button>
         </div>
@@ -203,8 +206,10 @@ export function Profile() {
       )}
       <div className="menu-list">
         {(role === 'editor' || role === 'admin') && <a className="menu-item" href="#/admin"><span className="cat-ic"><Icon name="shield" /></span><b>Administration</b><Icon name="chevron" /></a>}
+        {user && <a className="menu-item" href="#/details"><span className="cat-ic"><Icon name="idcard" /></span><b>My details</b><span className="sub">Programme, level, hall</span><Icon name="chevron" /></a>}
         <a className="menu-item" href="#/appearance"><span className="cat-ic"><Icon name="palette" /></span><b>Appearance</b><span className="sub">Theme, colour, map</span><Icon name="chevron" /></a>
         <a className="menu-item" href="#/schedule"><span className="cat-ic"><Icon name="calendar" /></span><b>My timetable</b><Icon name="chevron" /></a>
+        <a className="menu-item" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><b>GPA calculator</b><Icon name="chevron" /></a>
         <a className="menu-item" href="#/shuttles"><span className="cat-ic"><Icon name="bus" /></span><b>Shuttles{role === 'driver' ? ' · Driver mode' : ''}</b><Icon name="chevron" /></a>
         <InstallMenuItem />
         <a className="menu-item danger" href="#/emergency"><span className="cat-ic"><Icon name="sos" /></span><b>Emergency contacts</b><Icon name="chevron" /></a>
@@ -225,10 +230,7 @@ export function Profile() {
       {user && (<>
         <div className="section-title">Preferences</div>
         <div className="card">
-          <div className="pref-row"><span>I am a…</span>
-            <select className="input" style={{ width: 'auto' }} value={aff} onChange={e => { setAff(e.target.value); savePref({ affiliation: e.target.value || null }); }} aria-label="Affiliation">
-              <option value="">Prefer not to say</option><option value="student">Student</option><option value="staff">Staff</option><option value="visitor">Visitor</option><option value="other">Other</option>
-            </select></div>
+
           <label className="toggle-row"><span>Unread badge for new announcements</span><input type="checkbox" role="switch" checked={notify} onChange={e => { setNotify(e.target.checked); savePref({ notify_announcements: e.target.checked }); }} /></label>
         </div>
       </>)}

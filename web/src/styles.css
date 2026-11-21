@@ -478,3 +478,43 @@ textarea.input { min-height: 100px; resize: vertical; }
   .screen h1 { font-size: 2.2rem; }
   .bottom-nav { bottom: 18px; }
 }
+
+/* ── GPA ───────────────────────────────────────────── */
+.tool-link { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 14px; border-radius: var(--r-m); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-s); text-decoration: none; color: var(--text); }
+.tool-link > div { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tool-link span:not(.cat-ic) { font-size: .8rem; color: var(--text-3); }
+.tool-link > svg { width: 18px; color: var(--text-3); }
+.gpa-hero { --c: var(--accent); display: flex; align-items: center; gap: 18px; padding: 20px; border-radius: var(--r-l); color: #fff; margin-bottom: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--c) 85%, #0b1b3a), #0b1b3a); box-shadow: 0 18px 40px -18px var(--c); }
+.gpa-ring { --p: 0; width: 112px; height: 112px; border-radius: 50%; flex: none; display: grid; place-items: center; background: conic-gradient(#fff calc(var(--p) * 360deg), rgb(255 255 255 / .18) 0); }
+.gpa-ring > div { width: 92px; height: 92px; border-radius: 50%; display: grid; place-content: center; text-align: center; background: color-mix(in srgb, var(--c) 40%, #0b1b3a); }
+.gpa-ring b { font-size: 1.75rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.gpa-ring span { font-size: .7rem; font-weight: 700; opacity: .8; letter-spacing: .08em; }
+.gpa-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: .9rem; }
+.gpa-class { align-self: flex-start; padding: 5px 12px; border-radius: var(--r-pill); background: #fff; color: #0b1b3a; font-weight: 800; font-size: .85rem; }
+.gpa-class.muted { background: rgb(255 255 255 / .18); color: #fff; }
+.sub-on { font-size: .76rem; opacity: .75; }
+.sem-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-m); padding: 14px 16px; box-shadow: var(--shadow-s); margin-bottom: 10px; }
+.sem-gpa { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.gpa-list { list-style: none; padding: 0; margin: 10px 0; }
+.gpa-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grade-sel { appearance: none; -webkit-appearance: none; border: 0; border-radius: 10px; width: 52px; height: 34px; text-align: center; text-align-last: center; font-weight: 800; cursor: pointer; }
+.g-A { --g: #0f9d58; } .g-Bp, .g-B { --g: #1a73e8; } .g-Cp, .g-C { --g: #c8961e; } .g-Dp, .g-D { --g: #ea580c; } .g-E, .g-F { --g: #dc2626; }
+.grade-sel { background: color-mix(in srgb, var(--g) 15%, transparent); color: var(--g); }
+.grade-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.grade-grid button { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 8px 0; border-radius: var(--r-s); border: 1.5px solid var(--line); background: var(--surface); cursor: pointer; color: var(--g); }
+.grade-grid button b { font-size: 1.05rem; }
+.grade-grid button span { font-size: .62rem; color: var(--text-3); }
+.grade-grid button[aria-pressed="true"] { background: var(--g); color: #fff; border-color: var(--g); }
+.grade-grid button[aria-pressed="true"] span { color: rgb(255 255 255 / .85); }
+.whatif { margin: 0; padding: 12px 14px; border-radius: var(--r-s); background: var(--accent-soft); }
+.whatif.good { background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.whatif.bad { background: var(--danger-soft); }
+
+/* ── Details ───────────────────────────────────────── */
+.privacy-note { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-s); background: color-mix(in srgb, var(--ok) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 25%, transparent); font-size: .86rem; }
+.privacy-note svg { width: 18px; height: 18px; color: var(--ok); margin-top: 1px; }
+.sos-card.personal { margin-bottom: 10px; border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.sos-card.personal .call-btn { background: var(--accent); box-shadow: none; }
+/* A dialog must sit above the tab bar and AI button (pages form their own stacking context). */
+body:has(.modal-back) .bottom-nav, body:has(.modal-back) .ai-fab { display: none; }

@@ -9,6 +9,8 @@ import { db } from './lib/api';
 // Non-map screens are code-split so the map opens first.
 const Fresher = lazy(() => import('./screens/Fresher').then(m => ({ default: m.FresherRoute })));
 const Updates = lazy(() => import('./screens/Updates').then(m => ({ default: m.UpdatesRoute })));
+const Gpa = lazy(() => import('./screens/Gpa').then(m => ({ default: m.Gpa })));
+const MyDetails = lazy(() => import('./screens/Details').then(m => ({ default: m.MyDetails })));
 const Assistant = lazy(() => import('./screens/Assistant').then(m => ({ default: m.Assistant })));
 const Account = lazy(() => import('./screens/Account').then(m => ({ default: m.AccountRoute })));
 const Admin = lazy(() => import('./screens/Admin').then(m => ({ default: m.Admin })));
@@ -45,7 +47,7 @@ function useUnreadCount() {
 
 const TABS: [string, string, string][] = [['map', 'Map', 'map'], ['schedule', 'Schedule', 'calendar'], ['guide', 'Guide', 'book'], ['updates', 'Updates', 'bell'], ['me', 'Me', 'user']];
 const TAB_OF: Record<string, string> = {
-  '': 'map', map: 'map', explore: 'map', navigate: 'map', schedule: 'schedule', guide: 'guide', fresher: 'guide', assistant: 'guide', emergency: 'guide', shuttles: 'guide',
+  '': 'map', map: 'map', explore: 'map', navigate: 'map', schedule: 'schedule', gpa: 'schedule', details: 'me', guide: 'guide', fresher: 'guide', assistant: 'guide', emergency: 'guide', shuttles: 'guide',
   updates: 'updates', me: 'me', profile: 'me', login: 'me', register: 'me', 'forgot-password': 'me', 'reset-password': 'me', about: 'me', report: 'me', admin: 'me', appearance: 'me',
 };
 
@@ -72,6 +74,8 @@ function Shell() {
   else if (top === 'updates') page = <Updates seg={seg} />;
   else if (top === 'assistant') page = <Assistant />;
   else if (top === 'schedule') page = <Schedule />;
+  else if (top === 'gpa') page = <Gpa />;
+  else if (top === 'details') page = <MyDetails />;
   else if (top === 'emergency') page = <Emergency />;
   else if (top === 'shuttles') page = <Shuttles />;
   else if (top === 'admin') page = <Admin tab={(seg[1] as any) || 'overview'} />;

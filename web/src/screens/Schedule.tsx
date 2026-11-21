@@ -58,6 +58,8 @@ export function Schedule() {
   if (!user) return (
     <div className="screen">
       <header className="page-head"><h1>Schedule</h1><p className="lede">Your courses and lecture timetable, with one-tap directions to every venue.</p></header>
+      <a className="tool-link" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><div><b>GPA calculator</b><span>Semester GPA, CGPA and class of degree</span></div><Icon name="chevron" /></a>
+
       <div className="hero-card">
         <Icon name="calendar" style={{ width: 34, height: 34 }} />
         <h2>Plan your week</h2>
@@ -101,6 +103,7 @@ export function Schedule() {
         <h1>Schedule</h1>
         <p className="lede">{DAY_FULL[todayIdx() - 1]}, {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}{courses?.length ? ` · ${courses.length} course${courses.length > 1 ? 's' : ''}${credits ? ` · ${credits} credits` : ''}` : ''}</p>
       </header>
+      <a className="tool-link" href="#/gpa"><span className="cat-ic"><Icon name="calc" /></span><div><b>GPA calculator</b><span>Semester GPA, CGPA and class of degree</span></div><Icon name="chevron" /></a>
       {err && <Notice kind="error">{err} <button className="btn small" onClick={load}>Retry</button></Notice>}
       {!courses && !err && <Loading />}
 

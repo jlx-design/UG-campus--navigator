@@ -4,6 +4,7 @@ import { useStore } from '../store';
 import { Icon } from '../components/Icon';
 import { Loading, Notice } from '../components/common';
 import { fmtDate } from '../lib/geo';
+import { useDetails } from './Details';
 
 interface Contact { id: string; name: string; category: string; phone: string | null; is_emergency: boolean; description: string | null; location_id: string | null; source_label: string; source_url: string; checked_at: string }
 const CACHE = 'ugnav.emergency.v1';
@@ -14,6 +15,7 @@ export function Emergency() {
   const [rows, setRows] = useState<Contact[] | null>(() => { try { return JSON.parse(localStorage.getItem(CACHE) || 'null'); } catch { return null; } });
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const me = useDetails();
   useEffect(() => {
     db<Contact[]>('emergency_contacts', 'select=*&is_published=eq.true&order=sort_order.asc')
       .then(r => { setRows(r); try { localStorage.setItem(CACHE, JSON.stringify(r)); } catch { /* ignore */ } })
@@ -31,6 +33,12 @@ export function Emergency() {
     <div className="screen">
       <header className="page-head danger"><div className="sos-badge"><Icon name="sos" /></div><h1>Emergency</h1>
         <p className="lede">Tap a number to call. Every number is linked to the source it was checked against.</p></header>
+      {me?.emergency_contact_phone && (
+        <div className="sos-card personal">
+          <div className="row"><div style={{ minWidth: 0 }}><span className="sub">My emergency contact</span><br /><b>{me.emergency_contact_name || 'Emergency contact'}</b></div><span className="spacer" />
+            <a className="call-btn" href={`tel:${me.emergency_contact_phone.replace(/[^\d+]/g, '')}`} aria-label={`Call ${me.emergency_contact_name || 'my emergency contact'}`}><Icon name="phone" />Call</a></div>
+        </div>
+      )}
       {err && !rows && <Notice kind="error">Could not load contacts: {err}</Notice>}
       {!rows && !err && <Loading />}
       {urgent.length > 0 && (
