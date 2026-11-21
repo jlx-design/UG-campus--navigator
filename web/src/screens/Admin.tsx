@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { db, importOsm } from '../lib/api';
+import { db, importOsm, rpc } from '../lib/api';
 import { Icon } from '../components/Icon';
 import { BackLink, Empty, Loading, Notice, VerificationTag } from '../components/common';
 import { SECTIONS } from './Fresher';
@@ -8,20 +8,24 @@ import { ANN_CATEGORIES } from './Updates';
 import type { Announcement, ChecklistItem, FresherResource, Location, Report } from '../lib/types';
 import { fmtDate } from '../lib/geo';
 
-type Tab = 'locations' | 'announcements' | 'resources' | 'checklist' | 'reports' | 'audit';
+type Tab = 'overview' | 'locations' | 'announcements' | 'resources' | 'checklist' | 'emergency' | 'shuttles' | 'team' | 'reports' | 'audit';
 
 export function Admin({ tab }: { tab: Tab }) {
   const { role, authReady, user } = useStore();
   if (!authReady) return <div className="screen"><Loading /></div>;
   if (!user || (role !== 'editor' && role !== 'admin'))
     return <div className="screen"><h1>Administration</h1><Notice kind="error">You need an editor or administrator role to view this area. Roles are granted by an administrator, not from inside the app.</Notice></div>;
-  const tabs: [Tab, string][] = [['locations', 'Locations'], ['announcements', 'Announcements'], ['resources', 'Fresher content'], ['checklist', 'Checklist'], ['reports', 'Reports'], ['audit', 'Audit log']];
+  const tabs: [Tab, string][] = [['overview', 'Overview'], ['locations', 'Places'], ['announcements', 'Announcements'], ['resources', 'Guide content'], ['checklist', 'Checklist'], ['emergency', 'Emergency'], ['shuttles', 'Shuttles'], ...(role === 'admin' ? [['team', 'Team'] as [Tab, string]] : []), ['reports', 'Reports'], ['audit', 'Audit log']];
   return (
     <div className="screen" style={{ maxWidth: 1000 }}>
-      <BackLink href="#/profile" label="Profile" />
+      <BackLink href="#/me" label="Me" />
       <h1>Administration</h1>
       <p className="lede">Signed in as {role}. Every change here is enforced by database policies and recorded in the audit log.</p>
       <div className="tabs" role="tablist">{tabs.map(([k, l]) => <a key={k} role="tab" aria-selected={tab === k} className="chip" aria-pressed={tab === k} href={`#/admin/${k}`}>{l}</a>)}</div>
+      {tab === 'overview' && <Overview />}
+      {tab === 'emergency' && <EmergencyAdmin />}
+      {tab === 'shuttles' && <ShuttlesAdmin />}
+      {tab === 'team' && role === 'admin' && <TeamAdmin />}
       {tab === 'locations' && <LocationsAdmin />}
       {tab === 'announcements' && <AnnouncementsAdmin />}
       {tab === 'resources' && <ResourcesAdmin />}
@@ -236,7 +240,7 @@ function ResourcesAdmin() {
       )}
       {err && <Notice kind="error">{err}</Notice>}
       {!rows && !err && <Loading />}
-      {rows?.length === 0 && <Empty icon="book" title="No Fresher Hub content yet" />}
+      {rows?.length === 0 && <Empty icon="book" title="No guide content yet" />}
       <div className="list">{rows?.map(r => (
         <div key={r.id} className="card row"><div style={{ flex: 1, minWidth: 0 }}><b>{r.title}</b><div className="sub">{SECTIONS.find(s => s.key === r.section)?.label} · {r.is_official ? 'official' : 'guidance'} · {r.is_published ? 'published' : 'draft'}</div></div><button className="btn small" onClick={() => setEdit(r)}><Icon name="edit" /></button></div>
       ))}</div>
@@ -323,6 +327,143 @@ function AuditAdmin() {
       {rows && rows.length > 0 && <div style={{ overflowX: 'auto' }}><table className="table"><thead><tr><th>When</th><th>Action</th><th>Table</th><th>Record</th><th>Actor</th></tr></thead><tbody>
         {rows.map((r: any) => <tr key={r.id}><td className="sub">{fmtDate(r.at, true)}</td><td>{r.action}</td><td>{r.table_name}</td><td className="sub">{r.new_data?.name || r.new_data?.title || r.row_id || (r.action === 'OSM_IMPORT' ? JSON.stringify(r.new_data) : '')}</td><td className="sub">{r.actor_id ? r.actor_id.slice(0, 8) : 'system'}</td></tr>)}
       </tbody></table></div>}
+    </>
+  );
+}
+
+
+// ───────── Overview ─────────
+function Overview() {
+  const [st, setSt] = useState<Record<string, number> | null>(null); const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { rpc<any>('admin_stats', {}).then(setSt).catch(e => setErr(e.message)); }, []);
+  if (err) return <Notice kind="error">{err}</Notice>;
+  if (!st) return <Loading />;
+  const tiles: [string, string, string, string][] = [
+    ['Users', `${st.users}`, `${st.verified_users} verified`, '#/admin/team'], ['Places', `${st.locations}`, `${st.verified_locations} verified`, '#/admin/locations'],
+    ['Open reports', `${st.open_reports}`, 'awaiting review', '#/admin/reports'], ['Announcements', `${st.published_announcements}`, `${st.pending_announcements} pending approval`, '#/admin/announcements'],
+    ['Guide items', `${st.guide_items}`, 'published', '#/admin/resources'], ['Shuttles', `${st.live_shuttles} live`, `${st.shuttle_routes} active routes`, '#/admin/shuttles'],
+    ['Timetable courses', `${st.courses}`, 'added by students', '#/admin/overview'],
+  ];
+  return (
+    <>
+      <div className="stat-grid">{tiles.map(([l, v, sub, href]) => <a key={l} className="stat" href={href}><span>{l}</span><b>{v}</b><small>{sub}</small></a>)}</div>
+      {st.locations === 0 && <Notice kind="info">The campus directory is empty. Go to <a href="#/admin/locations">Places</a> → “Import from OpenStreetMap” to load named campus buildings, then verify them.</Notice>}
+    </>
+  );
+}
+
+// ───────── Emergency contacts ─────────
+function EmergencyAdmin() {
+  const { toast } = useStore();
+  const { rows, err, load } = useRows<any>('emergency_contacts', 'select=*&order=sort_order.asc');
+  const [edit, setEdit] = useState<any | null>(null);
+  const save = async () => {
+    const e = edit; const body = { name: e.name?.trim(), category: e.category, phone: blank(e.phone || ''), is_emergency: !!e.is_emergency, description: blank(e.description || ''), source_label: e.source_label?.trim(), source_url: e.source_url?.trim(), checked_at: e.checked_at || new Date().toISOString().slice(0, 10), sort_order: Number(e.sort_order ?? 100), is_published: e.is_published ?? true };
+    if (!body.name || !body.source_label || !body.source_url) { toast('Name and a source (label + URL) are required', 'error'); return; }
+    try { if (e.id) await db('emergency_contacts', `id=eq.${e.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('emergency_contacts', '', { method: 'POST', body, prefer: 'return=minimal' }); setEdit(null); load(); toast('Saved'); } catch (x: any) { toast(x.message, 'error'); }
+  };
+  return (
+    <>
+      <div className="row" style={{ marginBottom: 12 }}><span className="sub">Every number must cite the page you checked it against.</span><span className="spacer" /><button className="btn" onClick={() => setEdit({ category: 'campus', is_emergency: true, is_published: true, sort_order: 100 })}><Icon name="plus" />Add contact</button></div>
+      {edit && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <Input label="Name" value={edit.name || ''} onChange={e => setEdit({ ...edit, name: e.target.value })} />
+          <div className="row wrap"><div className="field"><label>Category</label><select className="input" value={edit.category} onChange={e => setEdit({ ...edit, category: e.target.value })}>{['national', 'medical', 'security', 'counselling', 'campus', 'other'].map(c => <option key={c}>{c}</option>)}</select></div>
+            <Input label="Phone" value={edit.phone || ''} onChange={e => setEdit({ ...edit, phone: e.target.value })} /></div>
+          <Text label="Description" value={edit.description || ''} onChange={e => setEdit({ ...edit, description: e.target.value })} />
+          <div className="row wrap"><Input label="Source label" value={edit.source_label || ''} onChange={e => setEdit({ ...edit, source_label: e.target.value })} /><Input label="Source URL" type="url" value={edit.source_url || ''} onChange={e => setEdit({ ...edit, source_url: e.target.value })} /><Input label="Checked on" type="date" value={edit.checked_at || ''} onChange={e => setEdit({ ...edit, checked_at: e.target.value })} /></div>
+          <div className="row wrap"><label className="row" style={{ gap: 8 }}><input type="checkbox" checked={!!edit.is_emergency} onChange={e => setEdit({ ...edit, is_emergency: e.target.checked })} />Emergency line</label>
+            <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={edit.is_published ?? true} onChange={e => setEdit({ ...edit, is_published: e.target.checked })} />Published</label>
+            <Input label="Order" type="number" value={edit.sort_order ?? 100} onChange={e => setEdit({ ...edit, sort_order: e.target.value })} /></div>
+          <div className="row"><button className="btn primary" onClick={save}>Save</button><button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button></div>
+        </div>
+      )}
+      {err && <Notice kind="error">{err}</Notice>}
+      {!rows && !err && <Loading />}
+      <div className="list">{rows?.map(r => <div key={r.id} className="card row"><div style={{ flex: 1 }}><b>{r.name}</b> {r.phone && <span className="tag">{r.phone}</span>}<div className="sub">{r.category} · {r.is_emergency ? 'emergency' : 'info line'} · {r.is_published ? 'published' : 'hidden'} · {r.source_label}</div></div><button className="btn small" onClick={() => setEdit(r)}><Icon name="edit" /></button></div>)}</div>
+    </>
+  );
+}
+
+// ───────── Shuttles ─────────
+function ShuttlesAdmin() {
+  const { toast, geo, startGeo } = useStore();
+  const routes = useRows<any>('shuttle_routes', 'select=*&order=name.asc');
+  const vehicles = useRows<any>('shuttle_vehicles', 'select=*&order=label.asc');
+  const stops = useRows<any>('shuttle_stops', 'select=*&order=route_id.asc,seq.asc');
+  const [r, setR] = useState<any | null>(null); const [v, setV] = useState<any | null>(null); const [st, setSt] = useState<any | null>(null);
+  const saveRoute = async () => { const body = { name: r.name?.trim(), color: r.color || '#0ea5e9', description: blank(r.description || ''), hours: blank(r.hours || ''), source_label: blank(r.source_label || ''), source_url: blank(r.source_url || ''), is_active: r.is_active ?? true };
+    if (!body.name) return toast('Route name required', 'error');
+    try { if (r.id) await db('shuttle_routes', `id=eq.${r.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('shuttle_routes', '', { method: 'POST', body, prefer: 'return=minimal' }); setR(null); routes.load(); toast('Route saved'); } catch (e: any) { toast(e.message, 'error'); } };
+  const saveVehicle = async () => { const body = { label: v.label?.trim(), route_id: v.route_id || null, is_active: v.is_active ?? true };
+    if (!body.label) return toast('Vehicle label required', 'error');
+    try { if (v.id) await db('shuttle_vehicles', `id=eq.${v.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('shuttle_vehicles', '', { method: 'POST', body, prefer: 'return=minimal' }); setV(null); vehicles.load(); toast('Vehicle saved'); } catch (e: any) { toast(e.message, 'error'); } };
+  const saveStop = async () => { const body = { route_id: st.route_id, seq: Number(st.seq), name: st.name?.trim(), lat: Number(st.lat), lng: Number(st.lng) };
+    if (!body.route_id || !body.name || !Number.isFinite(body.lat) || !Number.isFinite(body.lng)) return toast('Route, name and coordinates required', 'error');
+    try { if (st.id) await db('shuttle_stops', `id=eq.${st.id}`, { method: 'PATCH', body, prefer: 'return=minimal' }); else await db('shuttle_stops', '', { method: 'POST', body, prefer: 'return=minimal' }); setSt(null); stops.load(); toast('Stop saved'); } catch (e: any) { toast(e.message, 'error'); } };
+  const del = async (table: string, id: string, reload: () => void) => { if (!confirm('Delete this item?')) return; try { await db(table, `id=eq.${id}`, { method: 'DELETE', prefer: 'return=minimal' }); reload(); } catch (e: any) { toast(e.message, 'error'); } };
+  return (
+    <>
+      <p className="hint">Enter routes and stops only as confirmed with the UG transport office. Drivers are granted the <b>driver</b> role in the Team tab, then share their live position from Shuttles → Driver mode.</p>
+      <div className="section-title row">Routes<span className="spacer" /><button className="btn small" onClick={() => setR({ color: '#0ea5e9', is_active: true })}><Icon name="plus" />Route</button></div>
+      {r && <div className="card"><Input label="Route name" value={r.name || ''} onChange={e => setR({ ...r, name: e.target.value })} /><div className="row wrap"><div className="field"><label>Colour</label><input className="input" type="color" value={r.color || '#0ea5e9'} onChange={e => setR({ ...r, color: e.target.value })} /></div><Input label="Hours (verified)" value={r.hours || ''} onChange={e => setR({ ...r, hours: e.target.value })} /></div>
+        <Text label="Description" value={r.description || ''} onChange={e => setR({ ...r, description: e.target.value })} /><div className="row wrap"><Input label="Source label" value={r.source_label || ''} onChange={e => setR({ ...r, source_label: e.target.value })} /><Input label="Source URL" value={r.source_url || ''} onChange={e => setR({ ...r, source_url: e.target.value })} /></div>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={r.is_active ?? true} onChange={e => setR({ ...r, is_active: e.target.checked })} />Active</label>
+        <div className="row"><button className="btn primary" onClick={saveRoute}>Save</button><button className="btn ghost" onClick={() => setR(null)}>Cancel</button></div></div>}
+      <div className="list">{routes.rows?.map(x => <div key={x.id} className="card row"><span className="route-dot" style={{ ['--c' as any]: x.color }} /><b style={{ flex: 1 }}>{x.name}</b><button className="btn small" onClick={() => setR(x)}><Icon name="edit" /></button><button className="btn small" onClick={() => del('shuttle_routes', x.id, routes.load)}><Icon name="trash" /></button></div>)}</div>
+      {routes.rows?.length === 0 && <Empty icon="bus" title="No routes yet" />}
+
+      <div className="section-title row">Stops<span className="spacer" /><button className="btn small" disabled={!routes.rows?.length} onClick={() => setSt({ route_id: routes.rows?.[0]?.id, seq: (stops.rows?.length || 0) + 1 })}><Icon name="plus" />Stop</button></div>
+      {st && <div className="card"><div className="row wrap"><div className="field"><label>Route</label><select className="input" value={st.route_id} onChange={e => setSt({ ...st, route_id: e.target.value })}>{routes.rows?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div><Input label="Order" type="number" value={st.seq} onChange={e => setSt({ ...st, seq: e.target.value })} /></div>
+        <Input label="Stop name" value={st.name || ''} onChange={e => setSt({ ...st, name: e.target.value })} />
+        <div className="row wrap"><Input label="Latitude" value={st.lat ?? ''} onChange={e => setSt({ ...st, lat: e.target.value })} /><Input label="Longitude" value={st.lng ?? ''} onChange={e => setSt({ ...st, lng: e.target.value })} />
+          <button className="btn small" style={{ alignSelf: 'center' }} onClick={() => { startGeo(); if (geo.status === 'ok') setSt({ ...st, lat: geo.pos[0].toFixed(6), lng: geo.pos[1].toFixed(6) }); else toast('Getting your GPS position… tap again in a moment'); }}><Icon name="locate" />Use my position</button></div>
+        <div className="row"><button className="btn primary" onClick={saveStop}>Save</button><button className="btn ghost" onClick={() => setSt(null)}>Cancel</button></div></div>}
+      <div className="list">{stops.rows?.map(x => <div key={x.id} className="card row"><span className="tag">{x.seq}</span><b style={{ flex: 1 }}>{x.name}</b><span className="sub">{routes.rows?.find(r2 => r2.id === x.route_id)?.name}</span><button className="btn small" onClick={() => setSt(x)}><Icon name="edit" /></button><button className="btn small" onClick={() => del('shuttle_stops', x.id, stops.load)}><Icon name="trash" /></button></div>)}</div>
+
+      <div className="section-title row">Vehicles<span className="spacer" /><button className="btn small" onClick={() => setV({ is_active: true, route_id: routes.rows?.[0]?.id })}><Icon name="plus" />Vehicle</button></div>
+      {v && <div className="card"><Input label="Label (e.g. fleet no.)" value={v.label || ''} onChange={e => setV({ ...v, label: e.target.value })} /><div className="field"><label>Route</label><select className="input" value={v.route_id || ''} onChange={e => setV({ ...v, route_id: e.target.value })}><option value="">None</option>{routes.rows?.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></div>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={v.is_active ?? true} onChange={e => setV({ ...v, is_active: e.target.checked })} />Active</label>
+        <div className="row"><button className="btn primary" onClick={saveVehicle}>Save</button><button className="btn ghost" onClick={() => setV(null)}>Cancel</button></div></div>}
+      <div className="list">{vehicles.rows?.map(x => <div key={x.id} className="card row"><Icon name="bus" style={{ width: 18 }} /><b style={{ flex: 1 }}>{x.label}</b><span className="sub">{routes.rows?.find(r2 => r2.id === x.route_id)?.name || 'no route'}</span><button className="btn small" onClick={() => setV(x)}><Icon name="edit" /></button><button className="btn small" onClick={() => del('shuttle_vehicles', x.id, vehicles.load)}><Icon name="trash" /></button></div>)}</div>
+    </>
+  );
+}
+
+// ───────── Team (admins only) ─────────
+function TeamAdmin() {
+  const { toast } = useStore();
+  const [team, setTeam] = useState<any[] | null>(null);
+  const invites = useRows<any>('admin_invites', 'select=*&order=created_at.desc');
+  const [email, setEmail] = useState(''); const [role, setRole] = useState('editor');
+  const load = () => rpc<any[]>('admin_team', {}).then(setTeam).catch(e => toast(e.message, 'error'));
+  useEffect(() => { load(); }, []);
+  const invite = async () => {
+    const em = email.trim().toLowerCase(); if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Enter a valid email', 'error');
+    try { await db('admin_invites', 'on_conflict=email', { method: 'POST', body: { email: em, role }, prefer: 'resolution=merge-duplicates,return=minimal' }); setEmail(''); invites.load(); toast(`${em} will become ${role} after they verify their email and sign in`); } catch (e: any) { toast(e.message, 'error'); }
+  };
+  const setUserRole = async (user_id: string, r: string | null) => {
+    try { if (r) await db('app_roles', `user_id=eq.${user_id}`, { method: 'PATCH', body: { role: r }, prefer: 'return=minimal' }); else await db('app_roles', `user_id=eq.${user_id}`, { method: 'DELETE', prefer: 'return=minimal' }); load(); toast('Role updated'); } catch (e: any) { toast(e.message, 'error'); }
+  };
+  return (
+    <>
+      <div className="card">
+        <h3>Grant a role</h3>
+        <p className="sub">The person gets the role automatically once they sign in with this email and verify it.</p>
+        <div className="row wrap"><input className="input" style={{ flex: 2, minWidth: 200 }} type="email" placeholder="name@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+          <select className="input" style={{ flex: 1, minWidth: 120 }} value={role} onChange={e => setRole(e.target.value)}><option value="editor">Editor</option><option value="driver">Shuttle driver</option><option value="admin">Admin</option></select>
+          <button className="btn primary" onClick={invite}>Grant</button></div>
+      </div>
+      <div className="section-title">Team</div>
+      {!team && <Loading />}
+      <div className="list">{team?.map(t => (
+        <div key={t.user_id} className="card row"><div style={{ flex: 1, minWidth: 0 }}><b>{t.name || t.email}</b><div className="sub">{t.email}</div></div>
+          <select className="input" style={{ width: 'auto' }} value={t.role} onChange={e => setUserRole(t.user_id, e.target.value)}><option value="editor">Editor</option><option value="driver">Driver</option><option value="admin">Admin</option></select>
+          <button className="btn small" onClick={() => setUserRole(t.user_id, null)} aria-label="Remove role"><Icon name="trash" /></button></div>
+      ))}</div>
+      <div className="section-title">Pending grants</div>
+      <div className="list">{invites.rows?.map(i => <div key={i.email} className="card row"><b style={{ flex: 1 }}>{i.email}</b><span className="tag">{i.role}</span>
+        <button className="btn small" onClick={async () => { await db('admin_invites', `email=eq.${encodeURIComponent(i.email)}`, { method: 'DELETE', prefer: 'return=minimal' }).catch(() => {}); invites.load(); }}><Icon name="trash" /></button></div>)}</div>
     </>
   );
 }

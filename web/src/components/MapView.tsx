@@ -1,120 +1,182 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CAMPUS_BOUNDS, CAMPUS_CENTER, CAMPUS_ZOOM, CONFIG } from '../config';
+import { CAMPUS_BOUNDS, CAMPUS_CENTER, CAMPUS_ZOOM, CONFIG, MAX_BOUNDS } from '../config';
 import { useStore } from '../store';
+import { resolvedMapStyle } from '../theme';
 import { iconSvgString } from './Icon';
 import type { LatLng } from '../lib/geo';
 
-declare const L: any; // Leaflet, loaded from CDN in index.html
+declare const maplibregl: any; // MapLibre GL JS, loaded from CDN in index.html
 
-export interface MapApi { flyTo: (p: LatLng, z?: number) => void; fitRoute: () => void; home: () => void }
+export interface MapApi {
+  flyTo: (p: LatLng, z?: number) => void; fitRoute: () => void; home: () => void;
+  toggle3d: () => boolean; resetNorth: () => void; bearing: () => number; pitch: () => number;
+}
+
+const CAT_COLORS: Record<string, string> = {
+  academic: '#2563eb', lecture_hall: '#7c3aed', library: '#0d9488', administration: '#475569', hall: '#ea580c',
+  student_services: '#db2777', health: '#dc2626', sports: '#16a34a', food: '#ca8a04', worship: '#9333ea',
+  bank: '#0891b2', transport: '#0284c7', other: '#64748b',
+};
+const FONT = ['Noto Sans Regular'];
+const satelliteStyle = () => ({
+  version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+  sources: { sat: { type: 'raster', tiles: [CONFIG.SATELLITE_TILES], tileSize: 256, maxzoom: 19, attribution: CONFIG.SATELLITE_ATTRIBUTION } },
+  layers: [{ id: 'sat', type: 'raster', source: 'sat' }],
+});
+const styleFor = (s: string) => (s === 'satellite' ? satelliteStyle() : s === 'dark' ? CONFIG.STYLE_DARK : CONFIG.STYLE_STREETS);
+
+/** Accuracy ring as a polygon (metres → degrees). */
+function circle([lat, lng]: LatLng, r: number) {
+  const pts: number[][] = []; const dLat = r / 111320; const dLng = r / (111320 * Math.cos((lat * Math.PI) / 180));
+  for (let i = 0; i <= 48; i++) { const a = (i / 48) * 2 * Math.PI; pts.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]); }
+  return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [pts] }, properties: {} };
+}
 
 export function MapView({ visible, apiRef, filter }: { visible: boolean; apiRef: React.MutableRefObject<MapApi | null>; filter: string | null }) {
-  const { locations, categories, selectedId, select, geo, route, navigating, pickingOrigin, setPickingOrigin, origin, setOrigin, destId, byId } = useStore();
+  const s = useStore();
+  const { locations, selectedId, select, geo, route, navigating, pickingOrigin, setPickingOrigin, origin, setOrigin, destId, byId, prefs, shuttles, shuttleRoutes, showShuttles } = s;
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
-  const layers = useRef<{ markers?: any; me?: any; acc?: any; route?: any; casing?: any; origin?: any }>({});
-  const markerById = useRef(new Map<string, any>());
-  const [tileErrors, setTileErrors] = useState(0);
-  const [leafletMissing, setLeafletMissing] = useState(false);
+  const markers = useRef<{ sel?: any; me?: any; origin?: any; shuttles: Map<string, any> }>({ shuttles: new Map() });
+  const [ready, setReady] = useState(0);              // bumps after every style load so layers get re-added
+  const [failed, setFailed] = useState<string | null>(null);
+  const styleName = resolvedMapStyle(prefs);
+  const routeCoords = useRef<number[][]>([]);
+  const latest = useRef({ pickingOrigin, select, setOrigin, setPickingOrigin });
+  latest.current = { pickingOrigin, select, setOrigin, setPickingOrigin };
 
-  // Create map once
+  // ── Create once ──
   useEffect(() => {
-    if (typeof L === 'undefined') { setLeafletMissing(true); return; }
-    const m = L.map(el.current, { zoomControl: false, attributionControl: true, maxBounds: [[5.55, -0.30], [5.75, -0.08]], minZoom: 13, maxZoom: 19, tap: true })
-      .setView(CAMPUS_CENTER, CAMPUS_ZOOM);
-    const tiles = L.tileLayer(CONFIG.TILE_URL, { maxZoom: 19, attribution: CONFIG.TILE_ATTRIBUTION, crossOrigin: true });
-    let errs = 0;
-    tiles.on('tileerror', () => { errs++; if (errs % 4 === 0) setTileErrors(errs); });
-    tiles.on('load', () => { errs = 0; setTileErrors(0); });
-    tiles.addTo(m);
-    layers.current.markers = L.layerGroup().addTo(m);
+    if (typeof maplibregl === 'undefined') { setFailed('The map library could not be loaded. Check your connection and reload.'); return; }
+    const m = new maplibregl.Map({
+      container: el.current, style: styleFor(styleName), center: CAMPUS_CENTER, zoom: CAMPUS_ZOOM, maxBounds: MAX_BOUNDS,
+      minZoom: 12, maxZoom: 19.5, pitch: prefs.buildings3d ? 45 : 0, attributionControl: { compact: true }, dragRotate: true, touchPitch: true,
+      fadeDuration: prefs.reduceMotion ? 0 : 300,
+    });
+    m.touchZoomRotate.enableRotation();
+    m.on('style.load', () => setReady(n => n + 1));
+    m.on('error', (e: any) => { if (/style|Failed to fetch/i.test(String(e?.error?.message || ''))) setFailed('Map data is not loading. You may be offline — saved info still works.'); });
+    m.on('data', () => setFailed(null));
+    m.on('click', (e: any) => {
+      const L = latest.current;
+      if (L.pickingOrigin) { L.setOrigin({ kind: 'point', pos: [e.lngLat.lat, e.lngLat.lng] }); L.setPickingOrigin(false); return; }
+      const f = m.queryRenderedFeatures(e.point, { layers: ['ug-places', 'ug-places-label'].filter(id => m.getLayer(id)) })[0];
+      if (f) L.select(f.properties.id);
+    });
+    m.on('mouseenter', 'ug-places', () => { m.getCanvas().style.cursor = 'pointer'; });
+    m.on('mouseleave', 'ug-places', () => { m.getCanvas().style.cursor = ''; });
     map.current = m;
     apiRef.current = {
-      flyTo: (p, z = 18) => m.flyTo(p, Math.max(m.getZoom(), z), { duration: 0.6 }),
-      fitRoute: () => { const r = layers.current.route; if (r) m.fitBounds(r.getBounds(), { paddingTopLeft: [30, 140], paddingBottomRight: [30, 260] }); },
-      home: () => m.fitBounds(CAMPUS_BOUNDS),
+      flyTo: (p, z = 17.5) => m.flyTo({ center: [p[1], p[0]], zoom: Math.max(m.getZoom(), z), duration: prefs.reduceMotion ? 0 : 900, essential: true }),
+      fitRoute: () => { const c = routeCoords.current; if (c.length) { const b = c.reduce((bb: any, p: any) => bb.extend(p), new maplibregl.LngLatBounds(c[0], c[0])); m.fitBounds(b, { padding: { top: 150, bottom: 300, left: 40, right: 40 }, maxZoom: 18, duration: 700 }); } },
+      home: () => m.fitBounds(CAMPUS_BOUNDS, { padding: 20, duration: 800 }),
+      toggle3d: () => { const on = m.getPitch() < 10; m.easeTo({ pitch: on ? 55 : 0, duration: 600 }); return on; },
+      resetNorth: () => m.easeTo({ bearing: 0, pitch: 0, duration: 500 }),
+      bearing: () => m.getBearing(), pitch: () => m.getPitch(),
     };
     return () => { m.remove(); map.current = null; };
   }, []);
 
-  useEffect(() => { if (visible && map.current) setTimeout(() => map.current?.invalidateSize(), 50); }, [visible]);
+  // ── Switch basemap when the preference changes ──
+  const lastStyle = useRef(styleName);
+  useEffect(() => { if (map.current && lastStyle.current !== styleName) { lastStyle.current = styleName; map.current.setStyle(styleFor(styleName)); } }, [styleName]);
+  useEffect(() => { if (visible && map.current) setTimeout(() => map.current?.resize(), 60); }, [visible]);
+  useEffect(() => { if (map.current) map.current.getCanvas().style.cursor = pickingOrigin ? 'crosshair' : ''; }, [pickingOrigin]);
 
-  // Origin picking by tapping the map
+  // ── App layers (re-added after each style load) ──
   useEffect(() => {
-    const m = map.current; if (!m) return;
-    if (!pickingOrigin) { m.getContainer().style.cursor = ''; return; }
-    m.getContainer().style.cursor = 'crosshair';
-    const onClick = (e: any) => { setOrigin({ kind: 'point', pos: [e.latlng.lat, e.latlng.lng] }); setPickingOrigin(false); };
-    m.on('click', onClick); return () => { m.off('click', onClick); };
-  }, [pickingOrigin]);
+    const m = map.current; if (!m || !ready) return;
+    // 3D buildings for styles that lack them (dark); liberty ships its own "building-3d".
+    if (styleName === 'dark' && !m.getLayer('ug-buildings-3d') && m.getSource('openmaptiles')) {
+      m.addLayer({ id: 'ug-buildings-3d', type: 'fill-extrusion', source: 'openmaptiles', 'source-layer': 'building', minzoom: 15,
+        paint: { 'fill-extrusion-color': '#2a3346', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 6], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0], 'fill-extrusion-opacity': 0.75 } });
+    }
+    const add = (id: string, src: any) => { if (!m.getSource(id)) m.addSource(id, src); };
+    add('ug-places', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    add('ug-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    add('ug-acc', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    const dark = styleName !== 'streets';
+    if (!m.getLayer('ug-acc')) m.addLayer({ id: 'ug-acc', type: 'fill', source: 'ug-acc', paint: { 'fill-color': '#3b82f6', 'fill-opacity': 0.12 } });
+    if (!m.getLayer('ug-route-casing')) m.addLayer({ id: 'ug-route-casing', type: 'line', source: 'ug-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': dark ? '#0b1220' : '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 7, 19, 16] } });
+    if (!m.getLayer('ug-route')) m.addLayer({ id: 'ug-route', type: 'line', source: 'ug-route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 14, 4, 19, 10] } });
+    if (!m.getLayer('ug-places')) m.addLayer({ id: 'ug-places', type: 'circle', source: 'ug-places', paint: {
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 16, 6, 19, 10], 'circle-color': ['get', 'color'],
+      'circle-stroke-color': dark ? '#0b1220' : '#ffffff', 'circle-stroke-width': 2, 'circle-opacity': ['case', ['get', 'verified'], 1, 0.85] } });
+    if (!m.getLayer('ug-places-label')) m.addLayer({ id: 'ug-places-label', type: 'symbol', source: 'ug-places', minzoom: 16.2, layout: {
+      'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 12, 'text-offset': [0, 1.1], 'text-anchor': 'top', 'text-max-width': 9, 'text-optional': true },
+      paint: { 'text-color': dark ? '#e5e7eb' : '#1f2937', 'text-halo-color': dark ? '#0b1220' : '#ffffff', 'text-halo-width': 1.4 } });
+  }, [ready]);
 
-  // Markers
+  // ── Data → sources ──
   useEffect(() => {
-    const m = map.current; if (!m) return;
-    const group = layers.current.markers; group.clearLayers(); markerById.current.clear();
-    const iconOf = new Map(categories.map(c => [c.slug, c.icon]));
+    const m = map.current; const src = m?.getSource('ug-places'); if (!src) return;
     const shown = navigating ? locations.filter(l => l.id === destId) : locations.filter(l => !filter || l.category === filter || l.id === selectedId);
-    for (const l of shown) {
-      const sel = l.id === selectedId || (navigating && l.id === destId);
-      const html = `<div class="pin ${l.verification === 'verified' ? '' : 'unverified'} ${sel ? 'selected' : ''}">${iconSvgString(iconOf.get(l.category) || 'pin')}</div>`;
-      const size = sel ? 38 : 30;
-      const mk = L.marker([l.lat, l.lng], {
-        icon: L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size / 2 - 1, size + 2] }),
-        title: l.name, alt: l.name, keyboard: true, riseOnHover: true, zIndexOffset: sel ? 1000 : 0,
-      });
-      mk.on('click', () => { if (!pickingOrigin) select(l.id); });
-      mk.addTo(group); markerById.current.set(l.id, mk);
-    }
-  }, [locations, categories, selectedId, filter, navigating, destId, pickingOrigin]);
+    src.setData({ type: 'FeatureCollection', features: shown.map(l => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [l.lng, l.lat] },
+      properties: { id: l.id, name: l.name, color: CAT_COLORS[l.category] || CAT_COLORS.other, verified: l.verification === 'verified' } })) });
+  }, [locations, filter, navigating, destId, selectedId, ready]);
 
-  // Fly to selection
   useEffect(() => {
-    const l = selectedId ? byId.get(selectedId) : null;
-    if (l && map.current && !navigating) map.current.flyTo([l.lat, l.lng], Math.max(map.current.getZoom(), 17), { duration: 0.5 });
-  }, [selectedId]);
+    const m = map.current; const src = m?.getSource('ug-route'); if (!src) return;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1d4ed8';
+    routeCoords.current = route ? route.coordinates.map(([la, ln]) => [ln, la]) : [];
+    src.setData(route ? { type: 'Feature', geometry: { type: 'LineString', coordinates: routeCoords.current }, properties: { color: accent } } : { type: 'FeatureCollection', features: [] });
+    if (route && !navigating) apiRef.current?.fitRoute();
+  }, [route, ready, prefs.accent]);
 
-  // User location
+  // ── Selected place pin ──
   useEffect(() => {
     const m = map.current; if (!m) return;
-    if (geo.status !== 'ok') { layers.current.me?.remove(); layers.current.acc?.remove(); layers.current.me = layers.current.acc = undefined; return; }
+    markers.current.sel?.remove(); markers.current.sel = undefined;
+    const id = navigating ? destId : selectedId; const l = id ? byId.get(id) : null;
+    if (!l) return;
+    const cat = s.categories.find(c => c.slug === l.category);
+    const div = document.createElement('div'); div.className = 'pin-sel'; div.innerHTML = iconSvgString(cat?.icon || 'pin'); div.style.setProperty('--pin', CAT_COLORS[l.category] || CAT_COLORS.other);
+    markers.current.sel = new maplibregl.Marker({ element: div, anchor: 'bottom' }).setLngLat([l.lng, l.lat]).addTo(m);
+    if (!navigating) m.flyTo({ center: [l.lng, l.lat], zoom: Math.max(m.getZoom(), 17.2), offset: [0, -80], duration: prefs.reduceMotion ? 0 : 700 });
+  }, [selectedId, destId, navigating, byId]);
+
+  // ── User location (real device fixes only) ──
+  useEffect(() => {
+    const m = map.current; if (!m) return;
+    if (geo.status !== 'ok') { markers.current.me?.remove(); markers.current.me = undefined; m.getSource('ug-acc')?.setData({ type: 'FeatureCollection', features: [] }); return; }
     const stale = Date.now() - geo.at > 30000;
-    const html = `<div class="me-dot ${stale ? 'stale' : ''}" aria-label="Your location"></div>`;
-    if (!layers.current.me) {
-      layers.current.acc = L.circle(geo.pos, { radius: geo.accuracy, color: 'var(--route)', weight: 1, fillOpacity: 0.08, interactive: false }).addTo(m);
-      layers.current.me = L.marker(geo.pos, { icon: L.divIcon({ html, className: '', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false, zIndexOffset: 2000 }).addTo(m);
-    } else {
-      layers.current.me.setLatLng(geo.pos); layers.current.me.setIcon(L.divIcon({ html, className: '', iconSize: [18, 18], iconAnchor: [9, 9] }));
-      layers.current.acc.setLatLng(geo.pos); layers.current.acc.setRadius(geo.accuracy);
-    }
-    if (navigating) m.panTo(geo.pos, { animate: true });
-  }, [geo, navigating]);
+    if (!markers.current.me) { const d = document.createElement('div'); d.className = 'me'; d.innerHTML = '<i class="me-cone"></i><i class="me-dot"></i>'; markers.current.me = new maplibregl.Marker({ element: d, rotationAlignment: 'map' }).setLngLat([geo.pos[1], geo.pos[0]]).addTo(m); }
+    const me = markers.current.me; me.setLngLat([geo.pos[1], geo.pos[0]]);
+    me.getElement().classList.toggle('stale', stale);
+    me.getElement().classList.toggle('has-heading', geo.heading !== null && !Number.isNaN(geo.heading));
+    if (geo.heading !== null) me.setRotation(geo.heading);
+    m.getSource('ug-acc')?.setData(circle(geo.pos, Math.min(geo.accuracy, 300)));
+    if (navigating) m.easeTo({ center: [geo.pos[1], geo.pos[0]], zoom: Math.max(m.getZoom(), 17.5), duration: 600 });
+  }, [geo, navigating, ready]);
 
-  // Picked origin marker
+  // ── Picked start point ──
   useEffect(() => {
     const m = map.current; if (!m) return;
-    layers.current.origin?.remove(); layers.current.origin = undefined;
-    if (origin.kind === 'point') {
-      layers.current.origin = L.circleMarker(origin.pos, { radius: 8, color: '#fff', weight: 3, fillColor: '#0b2a5b', fillOpacity: 1, interactive: false }).addTo(m);
-    }
+    markers.current.origin?.remove(); markers.current.origin = undefined;
+    if (origin.kind === 'point') { const d = document.createElement('div'); d.className = 'origin-dot'; markers.current.origin = new maplibregl.Marker({ element: d }).setLngLat([origin.pos[1], origin.pos[0]]).addTo(m); }
   }, [origin]);
 
-  // Route geometry (as returned by the routing service — never synthesised)
+  // ── Live shuttles ──
   useEffect(() => {
     const m = map.current; if (!m) return;
-    layers.current.route?.remove(); layers.current.casing?.remove();
-    layers.current.route = layers.current.casing = undefined;
-    if (!route) return;
-    const css = getComputedStyle(document.documentElement);
-    layers.current.casing = L.polyline(route.coordinates, { color: css.getPropertyValue('--route-casing').trim() || '#fff', weight: 10, opacity: 0.9, interactive: false }).addTo(m);
-    layers.current.route = L.polyline(route.coordinates, { color: css.getPropertyValue('--route').trim() || '#1565d8', weight: 6, opacity: 0.95, interactive: false }).addTo(m);
-    if (!navigating) m.fitBounds(layers.current.route.getBounds(), { paddingTopLeft: [30, 140], paddingBottomRight: [30, 280] });
-  }, [route]);
+    const live = markers.current.shuttles; const seen = new Set<string>();
+    if (showShuttles) for (const p of shuttles) {
+      seen.add(p.vehicle_id);
+      const color = shuttleRoutes.find(r => r.id === p.route_id)?.color || '#0ea5e9';
+      let mk = live.get(p.vehicle_id);
+      if (!mk) { const d = document.createElement('div'); d.className = 'bus'; d.innerHTML = iconSvgString('bus'); mk = new maplibregl.Marker({ element: d }).setLngLat([p.lng, p.lat]).addTo(m); live.set(p.vehicle_id, mk); }
+      mk.getElement().style.setProperty('--bus', color);
+      mk.getElement().title = shuttleRoutes.find(r => r.id === p.route_id)?.name || 'Shuttle';
+      mk.setLngLat([p.lng, p.lat]);
+    }
+    for (const [id, mk] of live) if (!seen.has(id)) { mk.remove(); live.delete(id); }
+  }, [shuttles, showShuttles, shuttleRoutes]);
 
   return (
-    <div className="map-wrap" style={{ display: visible ? undefined : 'none' }}>
-      <div ref={el} className="map" role="application" aria-label="Campus map" />
-      {leafletMissing && <div className="map-overlay-top" style={{ top: 80 }}><div className="notice error">The map library could not be loaded. Check your internet connection and reload.</div></div>}
-      {tileErrors >= 8 && <div className="map-overlay-top" style={{ top: 'auto', bottom: 'calc(var(--nav-h) + 90px)' }}><div className="notice error">Map tiles are not loading. You may be offline — places and saved data still work.</div></div>}
+    <div className="map-wrap" style={{ display: visible ? undefined : 'none' }} aria-hidden={!visible}>
+      <div ref={el} className="map" role="application" aria-label="Campus map. Use the search box to find places." />
+      {failed && <div className="map-banner" role="alert">{failed}</div>}
     </div>
   );
 }

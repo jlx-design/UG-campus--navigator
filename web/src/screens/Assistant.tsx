@@ -16,7 +16,7 @@ function withCitations(text: string) {
 }
 
 export function Assistant() {
-  const { byId, select, setDestId, setRoute } = useStore();
+  const { byId, select, goDirections } = useStore();
   const [msgs, setMsgs] = useState<Msg[]>(() => { try { return JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch { return []; } });
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -56,8 +56,8 @@ export function Assistant() {
               <div className="row wrap" style={{ marginTop: 10 }}>
                 {m.locationIds.map(id => byId.get(id)).filter(Boolean).map(l => (
                   <React.Fragment key={l!.id}>
-                    <button className="btn small" onClick={() => { select(l!.id); go('#/explore'); }}><Icon name="pin" />{l!.name}</button>
-                    <button className="btn small primary" onClick={() => { setRoute(null); setDestId(l!.id); go('#/navigate'); }}><Icon name="walk" />Directions</button>
+                    <button className="btn small" onClick={() => { select(l!.id); go('#/map'); }}><Icon name="pin" />{l!.name}</button>
+                    <button className="btn small primary" onClick={() => goDirections(l!.id)}><Icon name="walk" />Directions</button>
                   </React.Fragment>
                 ))}
               </div>

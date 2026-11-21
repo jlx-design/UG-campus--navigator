@@ -4,17 +4,19 @@ declare const __UGNAV_CONFIG__: Partial<typeof defaults> | undefined;
 
 const defaults = {
   DATA_API_URL: 'https://ep-withered-boat-bhv75jg9.apirest.c-10.eu-central-1.aws.neon.tech/ugnav/rest/v1',
-  AUTH_URL: 'https://ep-withered-boat-bhv75jg9.neonauth.c-10.eu-central-1.aws.neon.tech/ugnav/auth',
   API_URL: 'https://br-ancient-sun-bhowhjub-api.compute.c-10.eu-central-1.aws.neon.tech',
-  // Map tiles: OpenStreetMap standard tiles (attribution required; light usage only — see README).
-  TILE_URL: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  TILE_ATTRIBUTION: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  // Vector basemaps (OpenFreeMap, OpenMapTiles schema, OSM data) and Esri World Imagery for satellite.
+  STYLE_STREETS: 'https://tiles.openfreemap.org/styles/liberty',
+  STYLE_DARK: 'https://tiles.openfreemap.org/styles/dark',
+  SATELLITE_TILES: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  SATELLITE_ATTRIBUTION: 'Imagery © Esri, Maxar, Earthstar Geographics',
 };
 
 export const CONFIG = { ...defaults, ...(typeof __UGNAV_CONFIG__ !== 'undefined' ? __UGNAV_CONFIG__ : {}) };
 
-// Approximate frame of the Legon campus used for the initial view and "back to campus".
-export const CAMPUS_CENTER: [number, number] = [5.6505, -0.1870];
-export const CAMPUS_ZOOM = 16;
-export const CAMPUS_BOUNDS: [[number, number], [number, number]] = [[5.630, -0.205], [5.670, -0.170]];
+// Legon campus frame ([lng, lat] order for MapLibre).
+export const CAMPUS_CENTER: [number, number] = [-0.1870, 5.6505];
+export const CAMPUS_ZOOM = 15.6;
+export const CAMPUS_BOUNDS: [[number, number], [number, number]] = [[-0.205, 5.630], [-0.170, 5.670]];
+export const MAX_BOUNDS: [[number, number], [number, number]] = [[-0.33, 5.52], [-0.05, 5.78]];
 export const SERVICE_AREA = { minLat: 5.60, maxLat: 5.70, minLng: -0.23, maxLng: -0.15 };

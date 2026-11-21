@@ -107,7 +107,7 @@ export function UpdateDetail({ id }: { id: string }) {
           {a.body && <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text-2)' }}>{a.body}</div>}
           <div className="row wrap" style={{ marginTop: 18 }}>
             {a.source_url && <a className="btn" href={a.source_url} target="_blank" rel="noopener noreferrer"><Icon name="external" />Read original</a>}
-            {loc && <button className="btn" onClick={() => { select(loc.id); go('#/explore'); }}><Icon name="pin" />{loc.name}</button>}
+            {loc && <button className="btn" onClick={() => { select(loc.id); go('#/map'); }}><Icon name="pin" />{loc.name}</button>}
             <a className="btn ghost small" href={`#/report?kind=outdated_announcement&announcement=${a.id}`}><Icon name="flag" />Report</a>
           </div>
           <div style={{ marginTop: 10 }}><SourceLink url={a.source_url} label={a.source_org} /></div>

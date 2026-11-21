@@ -10,7 +10,7 @@ const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) errors.push('console: ' + m.text()); });
-const routes = ['#/explore', '#/navigate', '#/fresher', '#/fresher/checklist', '#/fresher/registration', '#/fresher/halls', '#/updates', '#/assistant', '#/profile', '#/login', '#/register', '#/forgot-password', '#/reset-password?token=x', '#/report', '#/about', '#/admin'];
+const routes = ['#/map', '#/navigate', '#/schedule', '#/guide', '#/fresher/checklist', '#/emergency', '#/shuttles', '#/updates', '#/assistant', '#/me', '#/appearance', '#/login', '#/register', '#/forgot-password', '#/reset-password?token=x', '#/report', '#/about', '#/admin'];
 const results = [];
 for (const r of routes) {
   await page.goto(`${base}/${r}`, { waitUntil: 'domcontentloaded' });
@@ -21,8 +21,11 @@ for (const r of routes) {
   await page.screenshot({ path: `${out}/${r.replace(/[#/?=]/g, '_')}.png` });
 }
 // Interaction checks
-await page.goto(`${base}/#/profile`); await page.waitForTimeout(800);
-await page.locator('.seg button', { hasText: 'Dark' }).click();
+await page.goto(`${base}/#/appearance`); await page.waitForTimeout(800);
+await page.locator('.seg button', { hasText: 'Dark' }).first().click();
+await page.locator('.accent', { hasText: 'Emerald' }).click();
+const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent'));
+console.log('accent after pick ->', accent);
 const theme = await page.evaluate(() => document.documentElement.dataset.theme);
 await page.reload(); await page.waitForTimeout(500);
 const themeAfterReload = await page.evaluate(() => document.documentElement.dataset.theme);

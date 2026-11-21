@@ -1,116 +1,94 @@
-// Neon Auth (Managed Better Auth) client over its REST endpoints.
-// Session = Better Auth session (cookie, plus bearer token where the server supports it).
-// Data API / server function calls use a short-lived JWT obtained from the session.
+// Authentication via the app's own server function (which talks to Neon Auth server-side).
+// No third-party cookies are involved, so it works in Safari, Brave and installed PWAs alike.
+// The opaque session string is kept in localStorage and exchanged for short-lived JWTs.
 import { CONFIG } from '../config';
 import type { SessionUser } from './types';
 
-const TOKEN_KEY = 'ugnav.session_token';
+const SESSION_KEY = 'ugnav.session.v2';
+export type Role = 'user' | 'editor' | 'admin' | 'driver';
+interface Bundle { session: string; jwt: string | null; role: Role; user: SessionUser }
+
+let session: string | null = read();
 let jwt: { token: string; exp: number } | null = null;
 let currentUser: SessionUser | null = null;
-const listeners = new Set<(u: SessionUser | null) => void>();
+let currentRole: Role = 'user';
+let anon: { token: string; exp: number } | null = null;
+const listeners = new Set<(u: SessionUser | null, r: Role) => void>();
 
-function sessionToken(): string | null { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } }
-function setSessionToken(t: string | null) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch { /* storage unavailable */ } }
+function read() { try { return localStorage.getItem(SESSION_KEY); } catch { return null; } }
+function write(v: string | null) { try { v ? localStorage.setItem(SESSION_KEY, v) : localStorage.removeItem(SESSION_KEY); } catch { /* private mode */ } }
+const expOf = (t: string) => { try { return JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000; } catch { return Date.now() + 4 * 60_000; } };
 
 export class AuthError extends Error { constructor(message: string, public code = 'auth_error') { super(message); } }
 
-async function call(path: string, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  const st = sessionToken();
-  if (st) headers.set('Authorization', `Bearer ${st}`);
+async function call<T = any>(path: string, body: unknown): Promise<T> {
+  let res: Response;
   try {
-    return await fetch(`${CONFIG.AUTH_URL}${path}`, { ...init, headers, credentials: 'include' });
-  } catch {
-    throw new AuthError('Could not reach the sign-in service. Check your connection and try again.', 'network');
-  }
+    res = await fetch(`${CONFIG.API_URL}/auth/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(25000) });
+  } catch { throw new AuthError('Could not reach the server. Check your connection and try again.', 'network'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new AuthError(data?.error?.message || 'Something went wrong. Please try again.', data?.error?.code || 'auth_error');
+  return data as T;
 }
 
-async function errorFrom(res: Response, fallback: string): Promise<AuthError> {
-  const body = await res.json().catch(() => ({}));
-  const code = body?.code || 'auth_error';
-  const friendly: Record<string, string> = {
-    INVALID_EMAIL_OR_PASSWORD: 'That email and password do not match an account.',
-    USER_ALREADY_EXISTS: 'An account with this email already exists. Try signing in.',
-    PASSWORD_TOO_SHORT: 'Password is too short (use at least 8 characters).',
-    EMAIL_NOT_VERIFIED: 'Please verify your email address first — check your inbox.',
-    INVALID_TOKEN: 'This link is invalid or has expired. Request a new one.',
-  };
-  return new AuthError(friendly[code] || body?.message || fallback, code);
+function apply(b: Bundle | null) {
+  if (b) {
+    session = b.session; write(b.session);
+    jwt = b.jwt ? { token: b.jwt, exp: expOf(b.jwt) } : null;
+    currentUser = b.user; currentRole = b.role;
+  } else { session = null; write(null); jwt = null; currentUser = null; currentRole = 'user'; }
+  listeners.forEach(l => l(currentUser, currentRole));
 }
 
-function emit(u: SessionUser | null) { currentUser = u; listeners.forEach(l => l(u)); }
-export function onAuthChange(fn: (u: SessionUser | null) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
+export const onAuthChange = (fn: (u: SessionUser | null, r: Role) => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
 export const getUser = () => currentUser;
+export const getRole = () => currentRole;
 
-export async function loadSession(): Promise<SessionUser | null> {
-  try {
-    const res = await call('/get-session', { method: 'GET' });
-    if (!res.ok) { emit(null); return null; }
-    const hdr = res.headers.get('set-auth-jwt');
-    if (hdr) jwt = { token: hdr, exp: decodeExp(hdr) };
-    const body = await res.json().catch(() => null);
-    const u = body?.user ? { id: body.user.id, email: body.user.email, name: body.user.name, emailVerified: !!body.user.emailVerified } : null;
-    if (!u) jwt = null;
-    emit(u);
-    return u;
-  } catch { emit(currentUser); return currentUser; }
+let refreshing: Promise<SessionUser | null> | null = null;
+export function loadSession(): Promise<SessionUser | null> {
+  if (!session) { apply(null); return Promise.resolve(null); }
+  refreshing ??= call<Bundle>('session', { session })
+    .then(b => { apply(b); return b.user; })
+    .catch((e: AuthError) => { if (e.code !== 'network') apply(null); else listeners.forEach(l => l(currentUser, currentRole)); return currentUser; })
+    .finally(() => { refreshing = null; });
+  return refreshing;
 }
 
-function decodeExp(token: string): number {
-  try { return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).exp * 1000; } catch { return Date.now() + 5 * 60_000; }
-}
-
-/** JWT for the Data API / server function; null for guests. */
-export async function getJwt(): Promise<string | null> {
-  if (!currentUser) return null;
-  if (jwt && jwt.exp - Date.now() > 60_000) return jwt.token;
-  const res = await call('/token', { method: 'GET' }).catch(() => null);
-  if (res?.ok) {
-    const body = await res.json().catch(() => ({}));
-    if (body?.token) { jwt = { token: body.token, exp: decodeExp(body.token) }; return jwt.token; }
+/** Bearer token for the Data API: the user's JWT when signed in, otherwise a guest (anonymous-role) token. */
+export async function getToken(): Promise<string | null> {
+  if (session) {
+    if (jwt && jwt.exp - Date.now() > 60_000) return jwt.token;
+    await loadSession();
+    if (jwt) return jwt.token;
   }
-  await loadSession();
-  return jwt?.token ?? null;
+  if (anon && anon.exp - Date.now() > 60_000) return anon.token;
+  try {
+    const r = await fetch(`${CONFIG.API_URL}/auth/anonymous-token`, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) return null;
+    const d = await r.json(); anon = { token: d.token, exp: d.exp || expOf(d.token) };
+    return anon.token;
+  } catch { return null; }
 }
+export const getJwt = getToken;
 
-export async function signUp(name: string, email: string, password: string) {
-  const res = await call('/sign-up/email', { method: 'POST', body: JSON.stringify({ name, email, password, callbackURL: location.origin + location.pathname + '#/profile' }) });
-  if (!res.ok) throw await errorFrom(res, 'Could not create the account.');
-  const body = await res.json().catch(() => ({}));
-  if (body?.token) setSessionToken(body.token);
-  return loadSession();
+export type SignResult = { ok: true } | { verify: string };
+export async function signUp(name: string, email: string, password: string): Promise<SignResult> {
+  const r = await call<any>('sign-up', { name, email, password });
+  if (r.pending_verification) return { verify: r.email || email };
+  apply(r); return { ok: true };
 }
-
-export async function signIn(email: string, password: string) {
-  const res = await call('/sign-in/email', { method: 'POST', body: JSON.stringify({ email, password }) });
-  if (!res.ok) throw await errorFrom(res, 'Could not sign in.');
-  const body = await res.json().catch(() => ({}));
-  if (body?.token) setSessionToken(body.token);
-  const u = await loadSession();
-  if (!u) throw new AuthError('Signed in, but this browser blocked the session. Allow cookies for this site and try again.', 'session_blocked');
-  return u;
+export async function signIn(email: string, password: string): Promise<SignResult> {
+  try { const r = await call<any>('sign-in', { email, password }); if (r.pending_verification) return { verify: email }; apply(r); return { ok: true }; }
+  catch (e: any) { if (e.code === 'EMAIL_NOT_VERIFIED') return { verify: email }; throw e; }
 }
-
-export async function signOut() {
-  await call('/sign-out', { method: 'POST', body: '{}' }).catch(() => null);
-  setSessionToken(null); jwt = null; emit(null);
+/** Returns true when verified and signed in; false when verified but a fresh sign-in is needed. */
+export async function verifyEmail(email: string, code: string) {
+  const r = await call<any>('verify-email', { email, code });
+  if (r.session) { apply(r); return true; }
+  return false;
 }
-
-export async function requestPasswordReset(email: string) {
-  const redirectTo = location.origin + location.pathname + '#/reset-password';
-  let res = await call('/request-password-reset', { method: 'POST', body: JSON.stringify({ email, redirectTo }) });
-  if (res.status === 404) res = await call('/forget-password', { method: 'POST', body: JSON.stringify({ email, redirectTo }) });
-  if (!res.ok) throw await errorFrom(res, 'Could not send the reset email.');
-}
-
-export async function resetPassword(token: string, newPassword: string) {
-  const res = await call('/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) });
-  if (!res.ok) throw await errorFrom(res, 'Could not reset the password.');
-}
-
-export async function deleteAccount(password: string) {
-  const res = await call('/delete-user', { method: 'POST', body: JSON.stringify({ password }) });
-  if (!res.ok) throw await errorFrom(res, 'Account deletion is not available right now.');
-  setSessionToken(null); jwt = null; emit(null);
-}
+export const resendCode = (email: string) => call('resend-code', { email });
+export async function signOut() { const s = session; apply(null); if (s) await call('sign-out', { session: s }).catch(() => {}); }
+export const requestPasswordReset = (email: string) => call('forgot-password', { email, redirectTo: location.origin + location.pathname + '#/reset-password' });
+export const resetPassword = (token: string, newPassword: string) => call('reset-password', { token, newPassword });
+export async function deleteAccount(password: string) { await call('delete-account', { session, password }); apply(null); }

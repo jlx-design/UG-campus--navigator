@@ -6,11 +6,38 @@ import { Notice, SourceLink, VerificationTag, go } from '../components/common';
 import type { MapApi } from '../components/MapView';
 import { fmtDate, fmtDistance, haversine } from '../lib/geo';
 
+function LayersPanel({ mapApi, onClose }: { mapApi: React.MutableRefObject<MapApi | null>; onClose: () => void }) {
+  const { prefs, setPrefs, showShuttles, setShowShuttles, shuttles } = useStore();
+  const styles: [string, string, string][] = [['auto', 'Auto', 'sparkle'], ['streets', 'Streets', 'map'], ['satellite', 'Satellite', 'satellite'], ['dark', 'Night', 'moon']];
+  return (
+    <section className="sheet glass layers" aria-label="Map layers">
+      <div className="row"><h2 style={{ flex: 1 }}>Map style</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" /></button></div>
+      <div className="style-grid">
+        {styles.map(([k, l, i]) => (
+          <button key={k} className={`style-opt s-${k}`} aria-pressed={prefs.mapStyle === k} onClick={() => setPrefs({ mapStyle: k as any })}>
+            <span className="thumb"><Icon name={i} /></span>{l}
+          </button>
+        ))}
+      </div>
+      <div className="list-rows">
+        <label className="toggle-row"><span><Icon name="cube" />3D buildings & tilt</span>
+          <input type="checkbox" role="switch" checked={prefs.buildings3d} onChange={e => { setPrefs({ buildings3d: e.target.checked }); const on = mapApi.current?.pitch() ?? 0; if ((on > 10) !== e.target.checked) mapApi.current?.toggle3d(); }} /></label>
+        <label className="toggle-row"><span><Icon name="bus" />Live shuttles {shuttles.length ? <span className="tag ok">{shuttles.length} live</span> : <span className="tag">none live</span>}</span>
+          <input type="checkbox" role="switch" checked={showShuttles} onChange={e => setShowShuttles(e.target.checked)} /></label>
+      </div>
+      <p className="hint">Basemap © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors. Satellite imagery © Esri.</p>
+    </section>
+  );
+}
+
 export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.MutableRefObject<MapApi | null>; filter: string | null; setFilter: (f: string | null) => void }) {
-  const { categories, locations, locState, locError, reloadLocations, selectedId, select, byId, geo, startGeo, saved, toggleSaved, setDestId, setRoute } = useStore();
+  const { categories, locations, locState, locError, reloadLocations, selectedId, select, byId, geo, startGeo, saved, toggleSaved, goDirections } = useStore();
   const sel = selectedId ? byId.get(selectedId) : null;
   const usedCats = categories.filter(c => locations.some(l => l.category === c.slug));
   const [locating, setLocating] = useState(false);
+  const [layers, setLayers] = useState(false);
+  const [bearing, setBearing] = useState(0);
+  React.useEffect(() => { const t = setInterval(() => setBearing(mapApi.current?.bearing() ?? 0), 400); return () => clearInterval(t); }, []);
 
   const locate = () => {
     setLocating(true); startGeo();
@@ -18,7 +45,7 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
   };
   React.useEffect(() => { if (locating && geo.status === 'ok') { mapApi.current?.flyTo(geo.pos, 17); setLocating(false); } if (geo.status === 'denied' || geo.status === 'unavailable') setLocating(false); }, [geo, locating]);
 
-  const directions = (id: string) => { setRoute(null); setDestId(id); go('#/navigate'); };
+  const directions = (id: string) => goDirections(id);
 
   return (
     <>
@@ -41,14 +68,18 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
       </div>
 
       <div className="map-controls">
+        {Math.abs(bearing) > 2 && <button className="fab glass" onClick={() => mapApi.current?.resetNorth()} aria-label="Reset map to north"><Icon name="compass" style={{ transform: `rotate(${-bearing}deg)` }} /></button>}
+        <button className="fab glass" onClick={() => setLayers(v => !v)} aria-label="Map style and layers" aria-pressed={layers}><Icon name="layers" /></button>
         <button className="fab glass" onClick={locate} aria-label="Show my location" aria-pressed={geo.status === 'ok'}>
           {locating || geo.status === 'requesting' ? <span className="spinner" /> : <Icon name="locate" />}
         </button>
         <button className="fab glass" onClick={() => mapApi.current?.home()} aria-label="Back to campus"><Icon name="campus" /></button>
-        <a className="fab glass" href="#/assistant" aria-label="Ask the assistant"><Icon name="chat" /></a>
+        <a className="fab fab-sos" href="#/emergency" aria-label="Emergency contacts"><Icon name="sos" /></a>
       </div>
+      <a className="ask-pill glass" href="#/assistant"><Icon name="sparkle" />Ask Campus AI</a>
+      {layers && <LayersPanel mapApi={mapApi} onClose={() => setLayers(false)} />}
 
-      {sel && (
+      {sel && !layers && (
         <section className="sheet glass" aria-label={`${sel.name} details`}>
           <div className="grab" />
           <div className="row" style={{ alignItems: 'flex-start' }}>

@@ -7,7 +7,7 @@ import type { ChecklistItem, FresherResource } from '../lib/types';
 import { fmtDate } from '../lib/geo';
 
 export const SECTIONS: { key: string; label: string; icon: string; blurb: string }[] = [
-  { key: 'getting_started', label: 'Getting started', icon: 'sparkle', blurb: 'First steps after admission' },
+  { key: 'getting_started', label: 'New to UG', icon: 'sparkle', blurb: 'First steps for freshers' },
   { key: 'registration', label: 'Registration', icon: 'edit', blurb: 'Verified registration guidance' },
   { key: 'orientation', label: 'Orientation', icon: 'navigate', blurb: 'Orientation information' },
   { key: 'academic', label: 'Academic resources', icon: 'book', blurb: 'Libraries, portals, learning' },
@@ -30,24 +30,36 @@ function useResources() {
 
 export function FresherHome() {
   const { rows, err, load } = useResources();
+  const { shuttles, categories, locations } = useStore();
   const counts = useMemo(() => { const m = new Map<string, number>(); rows?.forEach(r => m.set(r.section, (m.get(r.section) || 0) + 1)); return m; }, [rows]);
+  const catCount = (slug: string) => locations.filter(l => l.category === slug).length;
+  const browse = ['library', 'lecture_hall', 'food', 'health', 'sports', 'hall', 'bank', 'worship'].map(s => categories.find(c => c.slug === s)).filter(Boolean) as any[];
   return (
     <div className="screen">
-      <h1>Fresher Hub</h1>
-      <p className="lede">Your guide to starting at the University of Ghana. Official requirements are always linked to their UG source.</p>
-      <div className="tiles" style={{ marginBottom: 10 }}>
-        <a className="tile" href="#/fresher/checklist"><Icon name="check" /><b>My checklist</b><span>Track your first-weeks tasks</span></a>
-        <a className="tile" href="#/assistant"><Icon name="chat" /><b>Ask the assistant</b><span>Questions in plain language</span></a>
-        <a className="tile" href="#/fresher/halls"><Icon name="hall" /><b>Halls of residence</b><span>Find and get directions</span></a>
-        <a className="tile" href="#/updates"><Icon name="bell" /><b>Announcements</b><span>Verified campus updates</span></a>
+      <header className="page-head"><h1>Campus Guide</h1><p className="lede">Everything about life at Legon — for students, staff and visitors.</p></header>
+      <a className="ai-hero" href="#/assistant">
+        <div className="ai-orb"><Icon name="sparkle" /></div>
+        <div><b>Ask Campus AI</b><span>“Where is the Balme Library?” · “How do I register?”</span></div>
+        <Icon name="chevron" />
+      </a>
+      <div className="quick-grid">
+        <a className="quick q-red" href="#/emergency"><Icon name="sos" /><b>Emergency</b><span>Call for help</span></a>
+        <a className="quick q-blue" href="#/shuttles"><Icon name="bus" /><b>Shuttles</b><span>{shuttles.length ? `${shuttles.length} live now` : 'Routes & live'}</span></a>
+        <a className="quick q-green" href="#/schedule"><Icon name="calendar" /><b>Timetable</b><span>Your classes</span></a>
+        <a className="quick q-gold" href="#/fresher/checklist"><Icon name="check" /><b>New to UG?</b><span>Starter checklist</span></a>
       </div>
-      <div className="section-title">Browse topics</div>
-      {err && <Notice kind="error">Could not load the hub: {err} <button className="btn small" onClick={load}>Retry</button></Notice>}
-      {!rows && !err && <Loading />}
+      {browse.length > 0 && <>
+        <div className="section-title">Find on campus</div>
+        <div className="cat-scroller">{browse.map(c => (
+          <a key={c.slug} className="cat-tile" href={`#/map?cat=${c.slug}`}><span className="cat-ic"><Icon name={c.icon} /></span><b>{c.label}</b><span>{catCount(c.slug)} places</span></a>
+        ))}</div>
+      </>}
+      <div className="section-title">Guides & resources</div>
+      {err && <Notice kind="error">Could not load the guide: {err} <button className="btn small" onClick={load}>Retry</button></Notice>}
       <div className="list">
         {SECTIONS.map(s => (
-          <a key={s.key} className="card row" href={`#/fresher/${s.key}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className="cat-ic" style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--surface-2)', display: 'grid', placeItems: 'center' }}><Icon name={s.icon} style={{ width: 20, height: 20, color: 'var(--brand)' }} /></span>
+          <a key={s.key} className="card row nav-row" href={`#/fresher/${s.key}`}>
+            <span className="cat-ic"><Icon name={s.icon} /></span>
             <div style={{ minWidth: 0 }}><h3>{s.label}</h3><div className="sub">{s.blurb}{rows ? ` · ${counts.get(s.key) || 0} item${counts.get(s.key) === 1 ? '' : 's'}` : ''}</div></div>
             <span className="spacer" /><Icon name="chevron" style={{ width: 18, color: 'var(--text-3)' }} />
           </a>
@@ -64,7 +76,7 @@ export function FresherSection({ section }: { section: string }) {
   const items = rows?.filter(r => r.section === section) ?? null;
   return (
     <div className="screen">
-      <BackLink href="#/fresher" label="Fresher Hub" />
+      <BackLink href="#/guide" label="Guide" />
       <h1>{meta?.label || 'Topic'}</h1>
       {section === 'terminology' && <p className="lede">Plain-language explanations. Entries marked “General guidance” are not official UG policy.</p>}
       {err && <Notice kind="error">{err} <button className="btn small" onClick={load}>Retry</button></Notice>}
@@ -94,7 +106,7 @@ export function FresherSection({ section }: { section: string }) {
               <div className="row wrap">
                 <SourceLink url={r.source_url} label={r.source_label} date={r.source_updated_at ? fmtDate(r.source_updated_at) : null} />
                 <span className="spacer" />
-                {loc && <button className="btn small" onClick={() => { select(loc.id); go('#/explore'); }}><Icon name="pin" />Show on map</button>}
+                {loc && <button className="btn small" onClick={() => { select(loc.id); go('#/map'); }}><Icon name="pin" />Show on map</button>}
               </div>
             </article>
           );
@@ -105,11 +117,11 @@ export function FresherSection({ section }: { section: string }) {
 }
 
 export function Halls() {
-  const { locations, locState, select, setDestId, setRoute } = useStore();
+  const { locations, locState, select, goDirections } = useStore();
   const halls = locations.filter(l => l.category === 'hall');
   return (
     <div className="screen">
-      <BackLink href="#/fresher" label="Fresher Hub" />
+      <BackLink href="#/guide" label="Guide" />
       <h1>Halls of residence</h1>
       <p className="lede">Locations from the campus directory. For room allocation, fees and availability, only the official UG accommodation channels are authoritative — this app does not have access to allocation records.</p>
       {locState === 'loading' && <Loading />}
@@ -120,8 +132,8 @@ export function Halls() {
             <div className="row"><h3 style={{ flex: 1 }}>{h.name}</h3><VerificationTag v={h.verification} /></div>
             {h.description && <p className="sub">{h.description}</p>}
             <div className="row wrap" style={{ marginTop: 8 }}>
-              <button className="btn small" onClick={() => { select(h.id); go('#/explore'); }}><Icon name="pin" />Map</button>
-              <button className="btn small primary" onClick={() => { setRoute(null); setDestId(h.id); go('#/navigate'); }}><Icon name="walk" />Directions</button>
+              <button className="btn small" onClick={() => { select(h.id); go('#/map'); }}><Icon name="pin" />Map</button>
+              <button className="btn small primary" onClick={() => goDirections(h.id)}><Icon name="walk" />Directions</button>
             </div>
           </div>
         ))}
@@ -166,7 +178,7 @@ export function Checklist() {
 
   return (
     <div className="screen">
-      <BackLink href="#/fresher" label="Fresher Hub" />
+      <BackLink href="#/guide" label="Guide" />
       <h1>My checklist</h1>
       <p className="lede">Tick items off as you complete them. <b>Official</b> items link to a UG source; <b>suggestions</b> are helpful tips, not requirements.</p>
       {!user && <Notice kind="info">You’re not signed in — progress is kept on this device only. <a href="#/login">Sign in</a> to sync it.</Notice>}
@@ -193,7 +205,7 @@ export function Checklist() {
                 {i.explanation && <div className="sub" style={{ marginTop: 4 }}>{i.explanation}</div>}
                 <div className="row wrap" style={{ marginTop: 6 }}>
                   <SourceLink url={i.source_url} label={i.source_label} />
-                  {loc && <button className="btn small ghost" onClick={() => { select(loc.id); go('#/explore'); }}><Icon name="pin" />{loc.name}</button>}
+                  {loc && <button className="btn small ghost" onClick={() => { select(loc.id); go('#/map'); }}><Icon name="pin" />{loc.name}</button>}
                 </div>
               </div>
             </div>

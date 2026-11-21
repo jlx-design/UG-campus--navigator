@@ -314,6 +314,183 @@ out center tags;`;
   return json(req, 200, { inserted, updated, skipped, osm_timestamp: data.osm3s?.timestamp_osm_base });
 }
 
+
+// ───────────── Auth proxy (Neon Auth / Better Auth) ─────────────
+// The browser never talks to the auth service directly, so third-party-cookie blocking (Safari, Brave)
+// cannot break sign-in. The Better Auth session cookie is returned to the client as an opaque
+// "session" string; the client sends it back to refresh its short-lived JWT.
+const AUTH_URL = env.NEON_AUTH_URL || '';
+const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/;
+
+function allowedOrigin(req) {
+  const o = req.headers.get('origin') || '';
+  return ALLOWED_ORIGINS.includes(o) ? o : (ALLOWED_ORIGINS[0] || '');
+}
+async function authCall(req, path, { method = 'GET', body, session } = {}) {
+  const headers = { Origin: allowedOrigin(req), Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (session) headers.Cookie = session;
+  const r = await fetch(AUTH_URL + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined, redirect: 'manual', signal: AbortSignal.timeout(15000) });
+  const setCookies = typeof r.headers.getSetCookie === 'function' ? r.headers.getSetCookie() : [];
+  const data = await r.json().catch(() => ({}));
+  return { r, data, setCookies, jwtHeader: r.headers.get('set-auth-jwt') };
+}
+const cookieString = list => list.map(c => c.split(';')[0]).filter(c => !/=\s*$/.test(c)).join('; ');
+function mergeSession(old, setCookies) {
+  const jar = new Map((old || '').split(/;\s*/).filter(Boolean).map(kv => [kv.split('=')[0], kv]));
+  for (const c of setCookies) { const kv = c.split(';')[0]; const k = kv.split('=')[0]; if (/=\s*$/.test(kv) || /max-age=0/i.test(c)) jar.delete(k); else jar.set(k, kv); }
+  return [...jar.values()].join('; ');
+}
+async function sessionBundle(req, session) {
+  const s = await authCall(req, '/get-session', { session });
+  if (!s.r.ok || !s.data?.user) return null;
+  session = mergeSession(session, s.setCookies);
+  let jwt = s.jwtHeader;
+  if (!jwt) { const t = await authCall(req, '/token', { session }); jwt = t.data?.token || null; }
+  const u = s.data.user;
+  // Invited emails (e.g. the project owner) receive their role on first sign-in.
+  if (u.emailVerified === true) await sql(
+    `insert into public.app_roles(user_id, role, granted_by)
+     select $1::uuid, i.role, 'invite:' || i.email from public.admin_invites i where i.email = lower($2)
+     on conflict (user_id) do update set role = excluded.role where app_roles.role <> 'admin'`, [u.id, u.email]).catch(e => console.log('role claim failed', e.message));
+  const [roleRow] = await sql(`select role from public.app_roles where user_id = $1::uuid`, [u.id]).catch(() => []);
+  return { session, jwt, role: roleRow?.role || 'user', user: { id: u.id, email: u.email, name: u.name, emailVerified: !!u.emailVerified } };
+}
+const AUTH_ERRORS = {
+  USER_ALREADY_EXISTS: 'An account with this email already exists. Try signing in.',
+  USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: 'An account with this email already exists. Try signing in.',
+  INVALID_EMAIL_OR_PASSWORD: 'That email and password do not match an account.',
+  PASSWORD_TOO_SHORT: 'Password is too short (use at least 8 characters).',
+  PASSWORD_TOO_LONG: 'Password is too long.',
+  INVALID_EMAIL: 'Please enter a valid email address.',
+  EMAIL_NOT_VERIFIED: 'Please verify your email first — enter the code we emailed you.',
+  INVALID_TOKEN: 'This link is invalid or has expired. Request a new one.',
+};
+const authFail = (req, d, status, fallback) => fail(req, status >= 500 ? 502 : status, d?.code || 'auth_error', AUTH_ERRORS[d?.code] || d?.message || fallback);
+
+async function authRoute(req, path) {
+  if (!AUTH_URL) return fail(req, 503, 'auth_not_configured', 'Sign-in is not configured on the server.');
+  const ip = clientKey(req, null);
+  const b = await readJson(req, 8000);
+  if (path === '/auth/sign-up' || path === '/auth/sign-in') {
+    if (!(await rateLimit(`auth:${ip}`, 30))) return fail(req, 429, 'rate_limited', 'Too many attempts. Please wait a few minutes.');
+    const email = String(b.email || '').trim().toLowerCase(), password = String(b.password || '');
+    if (!EMAIL_RE.test(email)) return fail(req, 400, 'INVALID_EMAIL', AUTH_ERRORS.INVALID_EMAIL);
+    if (password.length < 8 || password.length > 128) return fail(req, 400, 'PASSWORD_TOO_SHORT', AUTH_ERRORS.PASSWORD_TOO_SHORT);
+    const up = path === '/auth/sign-up';
+    const name = String(b.name || '').trim().slice(0, 80);
+    if (up && name.length < 2) return fail(req, 400, 'INVALID_NAME', 'Please enter your name.');
+    const res = await authCall(req, up ? '/sign-up/email' : '/sign-in/email', { method: 'POST', body: up ? { name, email, password } : { email, password } });
+    if (!res.r.ok) return authFail(req, res.data, res.r.status, up ? 'Could not create the account.' : 'Could not sign in.');
+    const session = cookieString(res.setCookies);
+    if (!session) return json(req, 200, { pending_verification: true, email });
+    const bundle = await sessionBundle(req, session);
+    if (!bundle) return json(req, 200, { pending_verification: true, email });
+    return json(req, 200, bundle);
+  }
+  if (path === '/auth/verify-email' || path === '/auth/resend-code') {
+    if (!(await rateLimit(`otp:${ip}`, 20))) return fail(req, 429, 'rate_limited', 'Too many attempts. Please wait a few minutes.');
+    const email = String(b.email || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) return fail(req, 400, 'INVALID_EMAIL', AUTH_ERRORS.INVALID_EMAIL);
+    if (path === '/auth/resend-code') {
+      const res = await authCall(req, '/email-otp/send-verification-otp', { method: 'POST', body: { email, type: 'email-verification' } });
+      if (!res.r.ok) return authFail(req, res.data, res.r.status, 'Could not send a new code.');
+      return json(req, 200, { ok: true });
+    }
+    const otp = String(b.code || '').replace(/\D/g, '').slice(0, 10);
+    const res = await authCall(req, '/email-otp/verify-email', { method: 'POST', body: { email, otp } });
+    if (!res.r.ok) return fail(req, 400, res.data?.code || 'INVALID_OTP', res.data?.code === 'OTP_EXPIRED' ? 'That code has expired. Request a new one.' : 'That code is not correct.');
+    const session = cookieString(res.setCookies);
+    const bundle = session ? await sessionBundle(req, session) : null;
+    return json(req, 200, bundle || { verified: true });
+  }
+  if (path === '/auth/session') {
+    if (!b.session) return fail(req, 401, 'no_session', 'Not signed in.');
+    const bundle = await sessionBundle(req, String(b.session).slice(0, 4000));
+    return bundle ? json(req, 200, bundle) : fail(req, 401, 'session_expired', 'Your session has expired. Please sign in again.');
+  }
+  if (path === '/auth/sign-out') {
+    if (b.session) await authCall(req, '/sign-out', { method: 'POST', body: {}, session: String(b.session).slice(0, 4000) }).catch(() => null);
+    return json(req, 200, { ok: true });
+  }
+  if (path === '/auth/forgot-password') {
+    if (!(await rateLimit(`forgot:${ip}`, 10))) return fail(req, 429, 'rate_limited', 'Too many requests. Please wait a while.');
+    const email = String(b.email || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) return fail(req, 400, 'INVALID_EMAIL', AUTH_ERRORS.INVALID_EMAIL);
+    const redirectTo = String(b.redirectTo || '').slice(0, 500);
+    if (!ALLOWED_ORIGINS.some(o => redirectTo.startsWith(o + '/'))) return fail(req, 400, 'bad_redirect', 'Invalid redirect.');
+    let res = await authCall(req, '/request-password-reset', { method: 'POST', body: { email, redirectTo } });
+    if (res.r.status === 404) res = await authCall(req, '/forget-password', { method: 'POST', body: { email, redirectTo } });
+    if (!res.r.ok) return authFail(req, res.data, res.r.status, 'Could not send the reset email.');
+    return json(req, 200, { ok: true });
+  }
+  if (path === '/auth/reset-password') {
+    const res = await authCall(req, '/reset-password', { method: 'POST', body: { token: String(b.token || ''), newPassword: String(b.newPassword || '') } });
+    if (!res.r.ok) return authFail(req, res.data, res.r.status, 'Could not reset the password.');
+    return json(req, 200, { ok: true });
+  }
+  if (path === '/auth/delete-account') {
+    if (!b.session) return fail(req, 401, 'no_session', 'Not signed in.');
+    const res = await authCall(req, '/delete-user', { method: 'POST', body: { password: String(b.password || '') }, session: String(b.session).slice(0, 4000) });
+    if (!res.r.ok) return authFail(req, res.data, res.r.status, 'Account deletion failed.');
+    return json(req, 200, { ok: true });
+  }
+  return fail(req, 404, 'not_found', 'Unknown endpoint.');
+}
+
+// Guest token for the Data API's anonymous role (cached server-side).
+let anonCache = { token: null, exp: 0 };
+async function anonToken(req) {
+  if (!anonCache.token || anonCache.exp - Date.now() < 60000) {
+    const r = await authCall(req, '/token/anonymous');
+    if (!r.r.ok || !r.data?.token) return fail(req, 502, 'anon_token_failed', 'Could not start a guest session.');
+    let exp = Date.now() + 5 * 60000;
+    try { exp = JSON.parse(Buffer.from(r.data.token.split('.')[1], 'base64url').toString()).exp * 1000; } catch {}
+    anonCache = { token: r.data.token, exp };
+  }
+  return json(req, 200, { token: anonCache.token, exp: anonCache.exp });
+}
+
+// End-to-end self test (sign-up → JWT → Data API → cleanup). Enabled only while SELFTEST_KEY is set.
+async function selfTest(req) {
+  const key = new URL(req.url).searchParams.get('key');
+  if (!env.SELFTEST_KEY || key !== env.SELFTEST_KEY) return fail(req, 404, 'not_found', 'Unknown endpoint.');
+  const out = {}; const email = `ugnav.selftest+${Date.now()}@example.com`;
+  const fakeReq = new Request('https://x/', { headers: { origin: ALLOWED_ORIGINS[0] } });
+  try {
+    const pw = 'Selftest-' + crypto.randomUUID();
+    const up = await authCall(fakeReq, '/sign-up/email', { method: 'POST', body: { name: 'Self Test', email, password: pw } });
+    out.signup_status = up.r.status; out.signup_code = up.data?.code || null; out.signup_cookies = up.setCookies.length;
+    const blocked = await authCall(fakeReq, '/sign-in/email', { method: 'POST', body: { email, password: pw } });
+    out.unverified_signin_status = blocked.r.status; out.unverified_signin_code = blocked.data?.code || null;
+    await sql(`update neon_auth."user" set "emailVerified" = true where email = $1`, [email]);
+    const si = await authCall(fakeReq, '/sign-in/email', { method: 'POST', body: { email, password: pw } });
+    out.signin_status = si.r.status;
+    const bundle = si.r.ok ? await sessionBundle(fakeReq, cookieString(si.setCookies)) : null;
+    out.role = bundle?.role || null;
+    if (bundle) { const again = await sessionBundle(fakeReq, bundle.session); out.session_refresh_ok = !!again?.jwt; }
+    out.session_ok = !!bundle; out.jwt_ok = !!bundle?.jwt;
+    if (bundle?.jwt) {
+      const base = env.DATA_API_URL;
+      const q = await fetch(`${base}/saved_places?select=location_id`, { headers: { Authorization: 'Bearer ' + bundle.jwt } });
+      out.data_api_user_status = q.status;
+      const ins = await fetch(`${base}/courses`, { method: 'POST', headers: { Authorization: 'Bearer ' + bundle.jwt, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: JSON.stringify({ code: 'TEST101' }) });
+      out.course_insert_status = ins.status;
+      const loc = await fetch(`${base}/locations`, { method: 'POST', headers: { Authorization: 'Bearer ' + bundle.jwt, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'x', category: 'other', lat: 5.65, lng: -0.19, source_label: 't' }) });
+      out.ordinary_user_location_insert_status = loc.status;
+    }
+    const an = await authCall(fakeReq, '/token/anonymous');
+    if (an.data?.token) {
+      const q = await fetch(`${env.DATA_API_URL}/emergency_contacts?select=name`, { headers: { Authorization: 'Bearer ' + an.data.token } });
+      out.data_api_anon_status = q.status; out.anon_rows = q.ok ? (await q.json()).length : null;
+      const s = await fetch(`${env.DATA_API_URL}/saved_places?select=location_id`, { headers: { Authorization: 'Bearer ' + an.data.token } });
+      out.anon_private_table_status = s.status;
+    }
+  } catch (e) { out.error = e.message; }
+  finally { await sql(`delete from neon_auth."user" where email = $1`, [email]).then(() => { out.cleanup = 'deleted'; }).catch(e => { out.cleanup = 'failed: ' + e.message; }); }
+  return json(req, 200, out);
+}
+
 // ───────────── /health ─────────────
 async function health(req) {
   let db = 'unreachable';
@@ -323,6 +500,7 @@ async function health(req) {
     routing: env.ORS_API_KEY ? 'configured' : 'not configured',
     ai: env.ANTHROPIC_API_KEY ? `configured (${AI_MODEL})` : 'not configured',
     auth_jwks: JWKS_URL ? 'configured' : 'not configured',
+    auth_proxy: AUTH_URL ? 'configured' : 'not configured',
     time: new Date().toISOString(),
   });
 }
@@ -333,6 +511,9 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
     try {
       if (req.method === 'GET' && (path === '/' || path === '/health')) return await health(req);
+      if (req.method === 'POST' && path.startsWith('/auth/')) return await authRoute(req, path);
+      if (req.method === 'GET' && path === '/auth/anonymous-token') return await anonToken(req);
+      if (req.method === 'GET' && path === '/selftest') return await selfTest(req);
       if (req.method === 'POST' && path === '/route') return await route(req);
       if (req.method === 'POST' && path === '/assistant') return await assistant(req);
       if (req.method === 'POST' && path === '/admin/import-osm') return await importOsm(req);
