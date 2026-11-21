@@ -46,13 +46,34 @@ const markBody = (existsSync(markPath) ? readFileSync(markPath, 'utf8') : '<g tr
 const logoSvg = (pad, full = false) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><clipPath id="t"><rect width="512" height="512" rx="${pad ? 0 : 112}"/></clipPath></defs>
   <g clip-path="url(#t)"><rect width="512" height="512" fill="${campus.brand.navy}"/><g transform="${pad && !full ? 'translate(56 56) scale(.78125)' : ''}">${markBody}</g></g></svg>`;
 const svg = (pad) => Buffer.from(logoSvg(pad));
-writeFileSync(join(dist, 'icons/logo.svg'), logoSvg(false));
-writeFileSync(join(dist, 'icons/logo-square.svg'), logoSvg(true));
-await sharp(svg(false)).resize(1024, 1024).png().toFile(join(dist, 'icons/logo-1024.png'));
-await sharp(svg(false)).resize(192, 192).png().toFile(join(dist, 'icons/icon-192.png'));
-await sharp(svg(false)).resize(512, 512).png().toFile(join(dist, 'icons/icon-512.png'));
-await sharp(svg(true)).resize(512, 512).png().toFile(join(dist, 'icons/icon-maskable-512.png'));
-await sharp(Buffer.from(logoSvg(true, true))).resize(180, 180).png().toFile(join(dist, 'icons/apple-touch-icon.png'));
+// The owner's campus badge (campus/logos/<id>.png, a transparent circle) is used when present; otherwise the pin placeholder.
+const badgePath = join(root, `campus/logos/${campus.id}.png`);
+if (existsSync(badgePath)) {
+  const bg = campus.brand.logoBg || campus.brand.navy;
+  const tile = async (size, scale, radius) => {
+    const b = await sharp(badgePath).resize(Math.round(size * scale), Math.round(size * scale), { kernel: 'lanczos3' }).toBuffer();
+    const base = sharp({ create: { width: size, height: size, channels: 4, background: bg } }).composite([{ input: b, gravity: 'center' }]);
+    if (!radius) return base.png();
+    const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${Math.round(size * radius)}"/></svg>`);
+    return sharp(await base.png().toBuffer()).composite([{ input: mask, blend: 'dest-in' }]).png();
+  };
+  await (await tile(192, 0.94, 0.22)).toFile(join(dist, 'icons/icon-192.png'));
+  await (await tile(512, 0.94, 0.22)).toFile(join(dist, 'icons/icon-512.png'));
+  await (await tile(512, 0.76, 0)).toFile(join(dist, 'icons/icon-maskable-512.png'));   // badge inside the 80% safe zone
+  await (await tile(180, 0.94, 0)).toFile(join(dist, 'icons/apple-touch-icon.png'));      // iOS rounds the corners itself
+  await (await tile(1024, 0.94, 0.22)).toFile(join(dist, 'icons/logo-1024.png'));
+  await sharp(badgePath).resize(256, 256, { kernel: 'lanczos3' }).png().toFile(join(dist, 'icons/logo.png'));  // in-app badge
+  await sharp(badgePath).resize(64, 64, { kernel: 'lanczos3' }).png().toFile(join(dist, 'icons/favicon-64.png'));
+} else {
+  writeFileSync(join(dist, 'icons/logo.svg'), logoSvg(false));
+  await sharp(svg(false)).resize(1024, 1024).png().toFile(join(dist, 'icons/logo-1024.png'));
+  await sharp(svg(false)).resize(256, 256).png().toFile(join(dist, 'icons/logo.png'));
+  await sharp(svg(false)).resize(64, 64).png().toFile(join(dist, 'icons/favicon-64.png'));
+  await sharp(svg(false)).resize(192, 192).png().toFile(join(dist, 'icons/icon-192.png'));
+  await sharp(svg(false)).resize(512, 512).png().toFile(join(dist, 'icons/icon-512.png'));
+  await sharp(svg(true)).resize(512, 512).png().toFile(join(dist, 'icons/icon-maskable-512.png'));
+  await sharp(Buffer.from(logoSvg(true, true))).resize(180, 180).png().toFile(join(dist, 'icons/apple-touch-icon.png'));
+}
 
 // Hosting config: SPA fallback + security headers (Netlify format).
 writeFileSync(join(dist, '.nojekyll'), '');

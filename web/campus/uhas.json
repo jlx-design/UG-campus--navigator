@@ -40,10 +40,11 @@
     "maxLng": 0.56
   },
   "brand": {
-    "navy": "#0f2b46",
+    "navy": "#13281a",
     "gold": "#e3a72f",
-    "accent": "#0e7490",
-    "accentName": "Volta Teal"
+    "accent": "#2f6b45",
+    "accentName": "Volta Green",
+    "logoBg": "#375b3f"
   },
   "api": {
     "dataApiUrl": "https://ep-silent-frog-beacouwq.apirest.c-9.us-east-2.aws.neon.tech/neondb/rest/v1",

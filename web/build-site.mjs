@@ -15,7 +15,7 @@ for (const id of ids) {
   cpSync(join(root, 'dist'), join(out, id), { recursive: true });
   const c = JSON.parse(readFileSync(join(root, 'campus', `${id}.json`), 'utf8'));
   campuses.push(c);
-  items.push(`<li><a class="campus" data-id="${esc(id)}" href="./${esc(id)}/" style="--c:${esc(c.brand.accent)}"><img class="mono" src="./${esc(id)}/icons/logo.svg" alt="" width="44" height="44"><span><b>${esc(c.short)}</b><span class="name">${esc(c.university)}, ${esc(c.campusName)}</span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></a></li>`);
+  items.push(`<li><a class="campus" data-id="${esc(id)}" href="./${esc(id)}/" style="--c:${esc(c.brand.accent)}"><img class="mono" src="./${esc(id)}/icons/logo.png" alt="" width="44" height="44"><span><b>${esc(c.short)}</b><span class="name">${esc(c.university)}, ${esc(c.campusName)}</span></span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span></a></li>`);
   console.log('built', id);
 }
 
@@ -67,6 +67,14 @@ const mapHero = renderMap({ lng0: -2.2, lng1: 1.0, lat0: 4.4, lat1: 7.15, W: 600
 writeFileSync(join(out, 'index.html'), readFileSync(join(root, 'frontdoor/index.html'), 'utf8').replace('__CAMPUS_LIST__', items.join('\n      ')).replace('__CAMPUS_IDS__', JSON.stringify(ids))
   .replace('__MAP_WIDE__', mapWide).replace('__MAP_HERO__', mapHero));
 cpSync(join(root, 'frontdoor/sw.js'), join(out, 'sw.js'));
+{ // Overall Campus Navigator logo: landing page badge + website icon.
+  const { createRequire } = await import('node:module'); const sharp = createRequire(import.meta.url)('sharp');
+  const src = join(root, 'frontdoor/logo.png');
+  await sharp(src).resize(224, 224, { kernel: 'lanczos3' }).png().toFile(join(out, 'logo.png'));
+  await sharp(src).resize(64, 64, { kernel: 'lanczos3' }).png().toFile(join(out, 'favicon-64.png'));
+  const b = await sharp(src).resize(170, 170, { kernel: 'lanczos3' }).toBuffer();
+  await sharp({ create: { width: 180, height: 180, channels: 4, background: '#213551' } }).composite([{ input: b, gravity: 'center' }]).png().toFile(join(out, 'apple-touch-icon.png'));
+}
 writeFileSync(join(out, '.nojekyll'), '');
 writeFileSync(join(out, '404.html'), '<!doctype html><meta charset="utf-8"><title>Not found</title><script>var p=location.pathname.split("/");location.replace("/"+(p[1]?p[1]+"/":""))</script><a href="/">Choose your campus</a>');
 // Restore the default (UG) generated config so local dev builds aren't left pointing at the last campus.

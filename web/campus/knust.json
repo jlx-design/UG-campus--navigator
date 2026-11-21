@@ -39,10 +39,11 @@
     "maxLng": -1.51
   },
   "brand": {
-    "navy": "#0e2f24",
+    "navy": "#3a1412",
     "gold": "#d4a017",
-    "accent": "#15803d",
-    "accentName": "Kumasi Green"
+    "accent": "#9b2c2c",
+    "accentName": "Kumasi Maroon",
+    "logoBg": "#822f2b"
   },
   "api": {
     "dataApiUrl": "https://ep-frosty-cherry-bdati34h.apirest.c-8.us-east-2.aws.neon.tech/neondb/rest/v1",

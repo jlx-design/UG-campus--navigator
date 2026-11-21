@@ -26,7 +26,7 @@ export function Admin({ tab }: { tab: Tab }) {
     <div className="screen admin" style={{ maxWidth: 1000 }}>
       <BackLink href="#/me" label="Me" />
       <header className="admin-head">
-        <img className="admin-logo" src="./icons/logo.svg" alt="" width="52" height="52" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        <img className="admin-logo" src="./icons/logo.png" alt="" width="52" height="52" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <h1>{CAMPUS.short} admin</h1>
           <p>{CAMPUS.university}, {CAMPUS.campusName}</p>

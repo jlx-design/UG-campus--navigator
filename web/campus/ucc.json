@@ -39,10 +39,11 @@
     "maxLng": -1.25
   },
   "brand": {
-    "navy": "#1a1446",
-    "gold": "#e0a526",
-    "accent": "#4f46e5",
-    "accentName": "Coast Indigo"
+    "navy": "#2a1f0d",
+    "gold": "#e0b04a",
+    "accent": "#8a6420",
+    "accentName": "Coast Gold",
+    "logoBg": "#a17e3a"
   },
   "api": {
     "dataApiUrl": "https://ep-quiet-wildflower-bdxp4oc1.apirest.c-8.us-east-2.aws.neon.tech/neondb/rest/v1",

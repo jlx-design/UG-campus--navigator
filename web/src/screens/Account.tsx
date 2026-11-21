@@ -19,7 +19,7 @@ function AuthShell({ title, sub, children }: { title: string; sub?: string; chil
   return (
     <div className="screen auth-screen">
       <div className="auth-card glass">
-        <div className="brandmark big"><img className="logo" src="./icons/logo.svg" alt="" width="44" height="44" /><span>{APP_NAME}</span></div>
+        <div className="brandmark big"><img className="logo" src="./icons/logo.png" alt="" width="44" height="44" /><span>{APP_NAME}</span></div>
         <div className="campus-line"><Icon name="campus" /><span>{CAMPUS.university}</span>{switchCampusHref() && <a href={switchCampusHref()!}>Not your campus?</a>}</div>
         <h1>{title}</h1>{sub && <p className="lede">{sub}</p>}
         {children}
