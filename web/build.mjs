@@ -37,19 +37,22 @@ Object.assign(mf, { name: `${campus.appName} — ${campus.university}`, short_na
   description: `Campus map, step-by-step walking directions, timetable, GPA, exams, shuttles, events and an AI campus guide for ${campus.university}.` });
 writeFileSync(join(dist, 'manifest.webmanifest'), JSON.stringify(mf, null, 2));
 
-// Icons (drawn here: a navy tile with a gold compass-pin mark — original artwork).
 const sharp = require('sharp');
-const svg = (pad) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="${pad ? 0 : 112}" fill="${campus.brand.navy}"/>
-  <g transform="translate(256 262) scale(${pad ? 0.72 : 0.92})">
-    <path d="M0-190c-80 0-140 60-140 138C-140 50 0 170 0 170S140 50 140-52c0-78-60-138-140-138Z" fill="${campus.brand.gold}"/>
-    <circle cx="0" cy="-52" r="58" fill="${campus.brand.navy}"/>
-    <path d="M0-98 18-52 0-6-18-52Z" fill="#ffffff"/>
-  </g></svg>`);
+// Icons: each campus has its own original mark in campus/marks/<id>.svg (512×512, tokens {BG} {FG} {DOT}).
+// pad=true makes the maskable/Apple version: square, with the mark shrunk into the safe zone.
+const markPath = join(root, `campus/marks/${campus.id}.svg`);
+const markBody = (existsSync(markPath) ? readFileSync(markPath, 'utf8') : '<circle cx="256" cy="256" r="90" fill="{FG}"/><circle cx="256" cy="256" r="34" fill="{DOT}"/>')
+  .replace(/<!--[\s\S]*?-->/g, '').replaceAll('{BG}', campus.brand.navy).replaceAll('{FG}', campus.brand.gold).replaceAll('{DOT}', '#ffffff');
+const logoSvg = (pad, full = false) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><clipPath id="t"><rect width="512" height="512" rx="${pad ? 0 : 112}"/></clipPath></defs>
+  <g clip-path="url(#t)"><rect width="512" height="512" fill="${campus.brand.navy}"/><g transform="${pad && !full ? 'translate(56 56) scale(.78125)' : ''}">${markBody}</g></g></svg>`;
+const svg = (pad) => Buffer.from(logoSvg(pad));
+writeFileSync(join(dist, 'icons/logo.svg'), logoSvg(false));
+writeFileSync(join(dist, 'icons/logo-square.svg'), logoSvg(true));
+await sharp(svg(false)).resize(1024, 1024).png().toFile(join(dist, 'icons/logo-1024.png'));
 await sharp(svg(false)).resize(192, 192).png().toFile(join(dist, 'icons/icon-192.png'));
 await sharp(svg(false)).resize(512, 512).png().toFile(join(dist, 'icons/icon-512.png'));
 await sharp(svg(true)).resize(512, 512).png().toFile(join(dist, 'icons/icon-maskable-512.png'));
-await sharp(svg(true)).resize(180, 180).png().toFile(join(dist, 'icons/apple-touch-icon.png'));
+await sharp(Buffer.from(logoSvg(true, true))).resize(180, 180).png().toFile(join(dist, 'icons/apple-touch-icon.png'));
 
 // Hosting config: SPA fallback + security headers (Netlify format).
 writeFileSync(join(dist, '.nojekyll'), '');
