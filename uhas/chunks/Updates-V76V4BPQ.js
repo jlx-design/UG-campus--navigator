@@ -1,0 +1,1 @@
+import{b as a,c as b,d as c,e as d,f as e,g as f}from"./chunk-N6KGKHAE.js";import"./chunk-QA54GBNA.js";import"./chunk-QZ5FVEUR.js";import"./chunk-CP4N63VL.js";import"./chunk-RNIZVR7W.js";import"./chunk-VPV235PS.js";import"./chunk-2JYROP5K.js";export{a as ANN_CATEGORIES,e as UpdateDetail,d as UpdatesList,f as UpdatesRoute,b as useAnnouncements,c as useUnread};
