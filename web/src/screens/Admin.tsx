@@ -18,13 +18,24 @@ export function Admin({ tab }: { tab: Tab }) {
   if (!authReady) return <div className="screen"><Loading /></div>;
   if (!user || (role !== 'editor' && role !== 'admin'))
     return <div className="screen"><h1>Administration</h1><Notice kind="error">You need an editor or administrator role to view this area. Roles are granted by an administrator, not from inside the app.</Notice></div>;
-  const tabs: [Tab, string][] = [['overview', 'Overview'], ['analytics', 'Analytics'], ...(role === 'admin' ? [['users', 'Users'] as [Tab, string]] : []), ['insights', 'Top places'], ['locations', 'Places'], ['rooms', 'Rooms'], ['hours', 'Opening hours'], ['listings', 'Business listings'], ['events', 'Events'], ['announcements', 'Announcements'], ['resources', 'Guide content'], ['checklist', 'Checklist'], ['emergency', 'Emergency'], ['shuttles', 'Shuttles'], ...(role === 'admin' ? [['team', 'Team'] as [Tab, string]] : []), ['reports', 'Reports'], ['audit', 'Audit log']];
+  const tabs: [Tab, string, string][] = [['overview', 'Overview', 'grid'], ['analytics', 'Analytics', 'chart'], ...(role === 'admin' ? [['users', 'Users', 'user'] as [Tab, string, string]] : []),
+    ['locations', 'Places', 'pin'], ['rooms', 'Rooms', 'door'], ['hours', 'Hours', 'clock'], ['listings', 'Listings', 'shop'], ['events', 'Events', 'event'],
+    ['announcements', 'Updates', 'bell'], ['resources', 'Guide', 'book'], ['checklist', 'Checklist', 'check'], ['emergency', 'Emergency', 'sos'], ['shuttles', 'Shuttles', 'bus'],
+    ['insights', 'Top places', 'star'], ...(role === 'admin' ? [['team', 'Team', 'shield'] as [Tab, string, string]] : []), ['reports', 'Reports', 'flag'], ['audit', 'Audit log', 'list']];
   return (
-    <div className="screen" style={{ maxWidth: 1000 }}>
+    <div className="screen admin" style={{ maxWidth: 1000 }}>
       <BackLink href="#/me" label="Me" />
-      <h1>Administration</h1>
-      <p className="lede">Signed in as {role}. Every change here is enforced by database policies and recorded in the audit log.</p>
-      <div className="tabs" role="tablist">{tabs.map(([k, l]) => <a key={k} role="tab" aria-selected={tab === k} className="chip" aria-pressed={tab === k} href={`#/admin/${k}`}>{l}</a>)}</div>
+      <header className="admin-head">
+        <img className="admin-logo" src="./icons/logo.svg" alt="" width="52" height="52" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <h1>{CAMPUS.short} admin</h1>
+          <p>{CAMPUS.university}, {CAMPUS.campusName}</p>
+        </div>
+        <span className={`role-badge ${role}`}><Icon name="shield" />{role === 'admin' ? 'Admin' : 'Editor'}</span>
+      </header>
+      <nav className="admin-tabs" aria-label="Admin sections">
+        {tabs.map(([k, l, ic]) => <a key={k} href={`#/admin/${k}`} aria-current={tab === k ? 'page' : undefined}><Icon name={ic} /><span>{l}</span></a>)}
+      </nav>
       {tab === 'overview' && <Overview />}
       {tab === 'insights' && <Insights />}
       {tab === 'analytics' && <Analytics />}
@@ -345,19 +356,52 @@ function AuditAdmin() {
 // ───────── Overview ─────────
 function Overview() {
   const [st, setSt] = useState<Record<string, number> | null>(null); const [err, setErr] = useState<string | null>(null);
-  useEffect(() => { rpc<any>('admin_stats', {}).then(setSt).catch(e => setErr(e.message)); }, []);
-  if (err) return <Notice kind="error">{err}</Notice>;
+  const { toast, reloadLocations } = useStore(); const [importing, setImporting] = useState(false);
+  const load = () => { setErr(null); rpc<any>('admin_stats', {}).then(setSt).catch(e => setErr(e.message)); };
+  useEffect(load, []);
+  if (err) return <Notice kind="error">Couldn't load the overview: {err} <button className="btn small" onClick={load}>Retry</button></Notice>;
   if (!st) return <Loading />;
-  const tiles: [string, string, string, string][] = [
-    ['Users', `${st.users}`, `${st.verified_users} verified`, '#/admin/team'], ['Places', `${st.locations}`, `${st.verified_locations} verified`, '#/admin/locations'],
-    ['Open reports', `${st.open_reports}`, 'awaiting review', '#/admin/reports'], ['Announcements', `${st.published_announcements}`, `${st.pending_announcements} pending approval`, '#/admin/announcements'],
-    ['Guide items', `${st.guide_items}`, 'published', '#/admin/resources'], ['Shuttles', `${st.live_shuttles} live`, `${st.shuttle_routes} active routes`, '#/admin/shuttles'],
-    ['Timetable courses', `${st.courses}`, 'added by students', '#/admin/overview'],
+  const n = (k: string) => Number((st as any)?.[k] ?? 0);
+  const runImport = async () => {
+    setImporting(true);
+    try { const r = await importOsm(); toast(`Imported ${r.inserted} places from OpenStreetMap`); reloadLocations(); load(); }
+    catch (e: any) { toast(e.message, 'error'); } finally { setImporting(false); }
+  };
+  // Setup steps, in the order a new campus needs them. Only unfinished steps are shown.
+  const steps: { done: boolean; title: string; text: string; action: React.ReactNode }[] = [
+    { done: n('locations') > 0, title: 'Import campus buildings', text: 'Pull named buildings from OpenStreetMap. They arrive marked unverified.',
+      action: <button className="btn small primary" disabled={importing} onClick={runImport}>{importing ? <span className="spinner" /> : <Icon name="download" />}Import</button> },
+    { done: n('verified_locations') > 0, title: 'Verify your first places', text: 'Check names and positions on the ground, then mark them verified.', action: <a className="btn small" href="#/admin/locations">Open places</a> },
+    { done: n('guide_items') > 0, title: 'Add guide content', text: 'Registration, orientation and services, each linked to its official source.', action: <a className="btn small" href="#/admin/resources">Add guide</a> },
+    { done: n('published_announcements') > 0, title: 'Post your first update', text: 'Share an official announcement with everyone on this campus.', action: <a className="btn small" href="#/admin/announcements">New update</a> },
+  ];
+  const todo = steps.filter(x => !x.done); const doneCount = steps.length - todo.length;
+  const tiles: [string, string, number, string, string][] = [
+    ['user', 'Users', n('users'), `${n('verified_users')} with verified email`, '#/admin/users'],
+    ['pin', 'Places', n('locations'), `${n('verified_locations')} verified`, '#/admin/locations'],
+    ['flag', 'Open reports', n('open_reports'), n('open_reports') ? 'need review' : 'nothing to review', '#/admin/reports'],
+    ['bell', 'Updates', n('published_announcements'), `${n('pending_announcements')} awaiting approval`, '#/admin/announcements'],
+    ['book', 'Guide items', n('guide_items'), 'published', '#/admin/resources'],
+    ['bus', 'Shuttles live', n('live_shuttles'), `${n('shuttle_routes')} active routes`, '#/admin/shuttles'],
+    ['calendar', 'Timetable courses', n('courses'), 'added by students', '#/admin/analytics'],
   ];
   return (
     <>
-      <div className="stat-grid">{tiles.map(([l, v, sub, href]) => <a key={l} className="stat" href={href}><span>{l}</span><b>{v}</b><small>{sub}</small></a>)}</div>
-      {st.locations === 0 && <Notice kind="info">The campus directory is empty. Go to <a href="#/admin/locations">Places</a> → “Import from OpenStreetMap” to load named campus buildings, then verify them.</Notice>}
+      {todo.length > 0 && (
+        <section className="card setup" aria-labelledby="setup-h">
+          <div className="row"><h2 id="setup-h" style={{ flex: 1 }}>Get your campus ready</h2><span className="sub">{doneCount} of {steps.length} done</span></div>
+          <div className="progress" style={{ margin: '10px 0 6px' }}><i style={{ width: `${(doneCount / steps.length) * 100}%` }} /></div>
+          <ol className="setup-steps">
+            {steps.map((x, i) => !x.done && (
+              <li key={i}><span className="step-n" aria-hidden="true">{i + 1}</span>
+                <div style={{ flex: 1, minWidth: 0 }}><b>{x.title}</b><div className="sub">{x.text}</div></div>{x.action}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+      <div className="stat-grid admin-stats">{tiles.map(([ic, l, v, sub, href]) => (
+        <a key={l} className="stat" href={href}><span className="stat-top"><i className="stat-ic"><Icon name={ic} /></i>{l}</span><b>{(v ?? 0).toLocaleString()}</b><small>{sub}</small></a>
+      ))}</div>
     </>
   );
 }

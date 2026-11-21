@@ -116,7 +116,7 @@ function Shell() {
           ))}
         </nav>
       )}
-      {!isMap && top !== 'assistant' && top !== 'welcome' && !['login', 'register', 'forgot-password', 'reset-password'].includes(top) && (
+      {!isMap && top !== 'assistant' && top !== 'welcome' && top !== 'admin' && !['login', 'register', 'forgot-password', 'reset-password'].includes(top) && (
         <a href="#/assistant" className="ai-fab" aria-label="Ask Campus AI"><Icon name="sparkle" /></a>
       )}
       {toastMsg && <div key={toastMsg.id} className={`toast glass ${toastMsg.kind}`} role="status">{toastMsg.msg}</div>}
