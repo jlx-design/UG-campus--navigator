@@ -758,3 +758,42 @@ img.welcome-mark { border-radius: 14px; }
 .note-x:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .note-x svg { width: 16px; height: 16px; }
 .ask-pill { height: 44px; font-size: .92rem; }
+
+/* ── Admin ── */
+.admin-head { display: flex; align-items: center; gap: 14px; margin: 14px 0 18px; }
+.admin-head h1 { margin: 0 !important; font-size: clamp(1.7rem, 6vw, 2.2rem) !important; }
+.admin-head p { margin: 2px 0 0; color: var(--text-2); font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-logo { width: 52px; height: 52px; border-radius: 15px; flex: none; box-shadow: 0 10px 22px -12px color-mix(in srgb, var(--navy) 80%, transparent); }
+.role-badge { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; font-size: .78rem; font-weight: 650;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.role-badge svg { width: 14px; height: 14px; }
+.admin-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 -18px 18px; padding: 6px 18px 8px; scroll-snap-type: x proximity;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 28px), transparent); }
+.admin-tabs::-webkit-scrollbar { display: none; }
+.admin-tabs a { flex: none; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 72px; padding: 10px 10px 9px; border-radius: 16px;
+  text-decoration: none; color: var(--text-2); font-size: .76rem; font-weight: 600; border: 1px solid transparent; transition: background .15s, color .15s; }
+.admin-tabs a svg { width: 21px; height: 21px; }
+.admin-tabs a:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+.admin-tabs a[aria-current="page"] { background: var(--glass-strong); color: var(--accent); border-color: var(--glass-line); box-shadow: var(--glass-hi), var(--shadow-s); }
+.setup h2 { margin: 0; font-size: 1.15rem; }
+.setup-steps { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.setup-steps li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid color-mix(in srgb, var(--text) 7%, transparent); }
+.setup-steps li:first-child { border-top: 0; }
+.setup-steps b { font-family: var(--display); font-weight: 700; letter-spacing: -.01em; }
+.step-n { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 .85rem/1 var(--display); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent); }
+@media (max-width: 520px) { .setup-steps li { flex-wrap: wrap; } .setup-steps li > .btn { margin-left: 40px; } }
+.admin-stats { margin-top: 14px; }
+.stat { border-radius: 20px; padding: 16px 16px 14px; gap: 4px; transition: border-color .15s; }
+.stat:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-line)); }
+.stat span.stat-top { display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0; font-size: .86rem; font-weight: 600; color: var(--text-2); }
+.stat-ic { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
+.stat-ic svg { width: 16px; height: 16px; }
+.stat b { font-size: 2rem; margin-top: 6px; letter-spacing: -.03em; }
+.stat span { text-transform: none; letter-spacing: 0; font-size: .84rem; }
+.admin-head p { white-space: normal; overflow: visible; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+@media (max-width: 520px) {
+  .setup-steps li { display: grid; grid-template-columns: 28px 1fr; column-gap: 12px; row-gap: 10px; align-items: start; }
+  .setup-steps li > .step-n { margin-top: 1px; }
+  .setup-steps li > .btn { grid-column: 2; justify-self: start; margin-left: 0; }
+}
