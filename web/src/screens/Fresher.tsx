@@ -11,17 +11,17 @@ import { fmtDate } from '../lib/geo';
 import { ForYou } from './ForYou';
 
 export const SECTIONS: { key: string; label: string; icon: string; blurb: string }[] = [
-  { key: 'getting_started', label: `New to ${CAMPUS.short}`, icon: 'sparkle', blurb: 'First steps for freshers' },
-  { key: 'registration', label: 'Registration', icon: 'edit', blurb: 'Verified registration guidance' },
-  { key: 'orientation', label: 'Orientation', icon: 'navigate', blurb: 'Orientation information' },
-  { key: 'academic', label: 'Academic resources', icon: 'book', blurb: 'Libraries, portals, learning' },
-  { key: 'facilities', label: 'Campus essentials', icon: 'campus', blurb: 'Key places on campus' },
-  { key: 'student_services', label: 'Student services', icon: 'services', blurb: 'Who can help with what' },
-  { key: 'accommodation', label: 'Accommodation & halls', icon: 'hall', blurb: 'Halls and official contacts' },
-  { key: 'navigation', label: 'Getting around', icon: 'walk', blurb: 'Gates, transport, wayfinding' },
-  { key: 'faq', label: 'FAQs', icon: 'chat', blurb: 'Common questions' },
-  { key: 'terminology', label: `${CAMPUS.short} Explained`, icon: 'info', blurb: 'University terms, explained' },
-  { key: 'official_links', label: 'Official resources', icon: 'link', blurb: `Links to official ${CAMPUS.short} sites` },
+  { key: 'getting_started', label: `New to ${CAMPUS.short}`, icon: 'gFirstSteps', blurb: 'First steps for freshers' },
+  { key: 'registration', label: 'Registration', icon: 'gRegister', blurb: 'Verified registration guidance' },
+  { key: 'orientation', label: 'Orientation', icon: 'gOrient', blurb: 'Orientation information' },
+  { key: 'academic', label: 'Academic resources', icon: 'gAcademic', blurb: 'Libraries, portals, learning' },
+  { key: 'facilities', label: 'Campus essentials', icon: 'gEssentials', blurb: 'Key places on campus' },
+  { key: 'student_services', label: 'Student services', icon: 'gServices', blurb: 'Who can help with what' },
+  { key: 'accommodation', label: 'Accommodation & halls', icon: 'gHalls', blurb: 'Halls and official contacts' },
+  { key: 'navigation', label: 'Getting around', icon: 'gAround', blurb: 'Gates, transport, wayfinding' },
+  { key: 'faq', label: 'FAQs', icon: 'gFaq', blurb: 'Common questions' },
+  { key: 'terminology', label: `${CAMPUS.short} Explained`, icon: 'gTerms', blurb: 'University terms, explained' },
+  { key: 'official_links', label: 'Official resources', icon: 'gOfficial', blurb: `Links to official ${CAMPUS.short} sites` },
 ];
 
 function useResources() {
@@ -57,20 +57,21 @@ export function FresherHome() {
       {browse.length > 0 && <>
         <div className="section-title">Find on campus</div>
         <div className="cat-scroller">{browse.map(c => (
-          <a key={c.slug} className="cat-tile" href={`#/map?cat=${c.slug}`}><span className="cat-ic"><Icon name={c.icon} /></span><b>{c.label}</b><span>{catCount(c.slug)} places</span></a>
+          <a key={c.slug} className="cat-tile" href={`#/map?cat=${c.slug}`}><span className="cat-ic"><Icon name={c.icon} /></span><b>{c.label}</b>{catCount(c.slug) > 0 && <span>{catCount(c.slug)} place{catCount(c.slug) === 1 ? '' : 's'}</span>}</a>
         ))}</div>
       </>}
       <div className="section-title">Guides & resources</div>
       {err && <Notice kind="error">Could not load the guide: {err} <button className="btn small" onClick={load}>Retry</button></Notice>}
-      <div className="list">
-        {SECTIONS.map(s => (
-          <a key={s.key} className="card row nav-row" href={`#/fresher/${s.key}`}>
-            <span className="cat-ic"><Icon name={s.icon} /></span>
-            <div style={{ minWidth: 0 }}><h3>{s.label}</h3><div className="sub">{s.blurb}{rows ? ` · ${counts.get(s.key) || 0} item${counts.get(s.key) === 1 ? '' : 's'}` : ''}</div></div>
-            <span className="spacer" /><Icon name="chevron" style={{ width: 18, color: 'var(--text-3)' }} />
+      <nav className="topic-index" aria-label="Guides and resources">
+        {SECTIONS.map(s => { const n = counts.get(s.key) || 0; return (
+          <a key={s.key} className="topic" href={`#/fresher/${s.key}`}>
+            <span className="topic-ic"><Icon name={s.icon} /></span>
+            <span className="topic-txt"><b>{s.label}</b><span>{s.blurb}</span></span>
+            {n > 0 && <span className="topic-n" aria-label={`${n} item${n === 1 ? '' : 's'}`}>{n}</span>}
+            <Icon name="chevron" className="topic-go" />
           </a>
-        ))}
-      </div>
+        ); })}
+      </nav>
     </div>
   );
 }

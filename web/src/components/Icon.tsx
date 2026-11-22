@@ -87,7 +87,54 @@ const P: Record<string, string> = {
   arrive: 'M12 21s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12Zm-3-12 2 2 4-4',
 };
 
+
+// Two-tone topic icons for the Campus Guide: an outline plus a soft tinted fill (24×24, 1.5px).
+const D: Record<string, { s: string; f: string; evenodd?: boolean }> = {
+  gFirstSteps: {
+    s: 'M4.1 11.2a2.9 4.6 0 1 0 5.8 0a2.9 4.6 0 1 0 -5.8 0ZM5.5 19.4a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0ZM13.9 5.6a2.9 4.6 0 1 0 5.8 0a2.9 4.6 0 1 0 -5.8 0ZM15.299999999999999 13.8a1.9 1.9 0 1 0 3.8 0a1.9 1.9 0 1 0 -3.8 0Z',
+    f: 'M4.1 11.2a2.9 4.6 0 1 0 5.8 0a2.9 4.6 0 1 0 -5.8 0ZM13.9 5.6a2.9 4.6 0 1 0 5.8 0a2.9 4.6 0 1 0 -5.8 0Z' },
+  gRegister: {
+    s: 'M9 4.5H7a1 1 0 0 0-1 1V20a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5.5a1 1 0 0 0-1-1h-2M9 3h6v3H9V3Zm0 10.5 2 2 4-4.5',
+    f: 'M6 5.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V5.5Z' },
+  gOrient: {
+    s: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-15.5V6m0 12v.5M5.5 12H6m12 0h.5M15.2 8.8l-1.8 4.6-4.6 1.8 1.8-4.6 4.6-1.8Z',
+    f: 'M15.2 8.8l-1.8 4.6-4.6 1.8 1.8-4.6 4.6-1.8Z' },
+  gAcademic: {
+    s: 'M2.5 9 12 5l9.5 4-9.5 4-9.5-4Zm4 2.2v4.3c0 1.4 2.5 2.8 5.5 2.8s5.5-1.4 5.5-2.8v-4.3M21.5 9v5',
+    f: 'M2.5 9 12 5l9.5 4-9.5 4-9.5-4Z' },
+  gEssentials: {
+    s: 'M3 9.5 12 4l9 5.5H3Zm1.5 0V18m5-8.5V18m5-8.5V18m5-8.5V18M3 21h18M3.5 18h17',
+    f: 'M3 9.5 12 4l9 5.5H3Z' },
+  gServices: {
+    s: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5.6 5.6l3.6 3.6m5.6 5.6 3.6 3.6m0-12.8-3.6 3.6m-5.6 5.6-3.6 3.6',
+    f: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z', evenodd: true },
+  gHalls: {
+    s: 'M3 19.5V6m0 9h18v4.5M21 15v-3a3 3 0 0 0-3-3h-7v6M6.8 12.6a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Z',
+    f: 'M11 9h7a3 3 0 0 1 3 3v3H11V9Z' },
+  gAround: {
+    s: 'M12 3v18M8.5 21h7M5 5h11l2.5 2.5L16 10H5V5Zm14 7H8l-2.5 2.5L8 17h11v-5Z',
+    f: 'M5 5h11l2.5 2.5L16 10H5V5Zm14 7H8l-2.5 2.5L8 17h11v-5Z' },
+  gFaq: {
+    s: 'M4 5h16v11h-9l-5 4v-4H4V5Zm6.2 3.6a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4M12 13.8h.01',
+    f: 'M4 5h16v11h-9l-5 4v-4H4V5Z' },
+  gTerms: {
+    s: 'M5 18V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v11H7a2 2 0 0 0-2 2Zm0 0a2 2 0 0 0 2 2h12v-4M9.3 13l2.7-6.5 2.7 6.5m-4.5-2h3.6',
+    f: 'M5 18V5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v11H7a2 2 0 0 0-2 2Z' },
+  gOfficial: {
+    s: 'M12 14.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Zm-3.2-.9L8 21l4-2 4 2-.8-7.4M9.8 9l1.5 1.5 3-3',
+    f: 'M12 14.5a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Z' },
+};
+
 export function Icon({ name, title, ...rest }: { name: string; title?: string } & React.SVGProps<SVGSVGElement>) {
+  const duo = D[name];
+  if (duo) return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden={title ? undefined : true} role={title ? 'img' : undefined} {...rest}>
+      {title ? <title>{title}</title> : null}
+      <path className="duo-fill" d={duo.f} stroke="none" fillRule={duo.evenodd ? 'evenodd' : undefined} />
+      <path d={duo.s} />
+    </svg>
+  );
   const d = P[name] || P.pin;
   const filled = name === 'starFill';
   return (
