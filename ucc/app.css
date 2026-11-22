@@ -803,3 +803,19 @@ img.welcome-mark { border-radius: 14px; }
 .maker-mono { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; font: 800 1.1rem/1 var(--display); letter-spacing: -.02em; color: #fff;
   background: linear-gradient(145deg, var(--accent), var(--navy)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 12px 24px -14px var(--navy); }
 .maker-roles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+/* Campus Guide topic index: one grouped panel with hairline dividers and two-tone topic icons. */
+.topic-index { display: flex; flex-direction: column; border-radius: var(--r-l, 22px); overflow: hidden; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-s); }
+.topic { display: grid; grid-template-columns: 44px 1fr auto auto; align-items: center; gap: 14px; padding: 14px 16px; text-decoration: none; color: var(--text); position: relative; }
+.topic + .topic::before { content: ""; position: absolute; top: 0; left: 74px; right: 0; height: 1px; background: var(--line); }
+.topic:active { background: var(--accent-soft); }
+.topic-ic { width: 44px; height: 44px; display: grid; place-items: center; color: var(--navy); }
+.topic-ic svg { width: 30px; height: 30px; }
+.topic-ic .duo-fill, .cat-ic .duo-fill { fill: var(--gold); opacity: .38; }
+.topic-txt { display: flex; flex-direction: column; min-width: 0; }
+.topic-txt b { font-family: var(--display); font-weight: 700; letter-spacing: -.015em; font-size: 1.02rem; line-height: 1.25; }
+.topic-txt span { font-size: .86rem; color: var(--text-3); line-height: 1.35; }
+.topic-n { min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; display: grid; place-items: center; font-size: .75rem; font-weight: 600; color: var(--text-2); background: var(--gold-soft); font-variant-numeric: tabular-nums; }
+.topic-go { width: 16px; height: 16px; color: var(--text-3); }
+:root[data-theme="dark"] .topic-ic, .dark .topic-ic { color: #e9edf6; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .topic-ic { color: #e9edf6; } }

@@ -1,7 +1,7 @@
 // UG Campus Navigator service worker.
 // Caches the static app shell, the pinned map library, and campus map tiles (for offline use).
 // API, auth, routing and AI requests always go to the network and are never cached.
-const VERSION = 'mwrdozs1';
+const VERSION = 'mwrdxu1s';
 const SHELL = `ugnav-ucc-shell-${VERSION}`;
 // Paths are relative to the SW's own location, so the app works at a domain root or under a sub-path (GitHub Pages).
 const BASE = new URL('./', self.location).pathname;
