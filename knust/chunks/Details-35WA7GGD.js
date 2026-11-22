@@ -1,0 +1,1 @@
+import{a,b,c}from"./chunk-DSPAIPKQ.js";import"./chunk-YIV6HJB6.js";import"./chunk-V3HEBO3X.js";import"./chunk-CVE4XIUM.js";import"./chunk-RY75UX7Y.js";export{c as MyDetails,a as levelLabel,b as useDetails};

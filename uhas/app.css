@@ -819,3 +819,24 @@ img.welcome-mark { border-radius: 14px; }
 .topic-go { width: 16px; height: 16px; color: var(--text-3); }
 :root[data-theme="dark"] .topic-ic, .dark .topic-ic { color: #e9edf6; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .topic-ic { color: #e9edf6; } }
+
+/* Two-tone icons: default gold tint for the fill layer. */
+.duo-fill { fill: var(--gold); opacity: .4; }
+/* Bottom bar: outline icons; the selected tab turns navy with a gold fill, no highlight bubble. */
+.bottom-nav a { color: var(--text-3); font-weight: 500; }
+.bottom-nav .nav-ic svg { width: 25px; height: 25px; }
+.bottom-nav .duo-fill { opacity: 0; transition: opacity .2s var(--ease); }
+.bottom-nav a[aria-current="page"] { color: var(--nav-on, var(--navy)); font-weight: 700; }
+.bottom-nav a[aria-current="page"] .nav-ic { background: none; box-shadow: none; transform: none; color: var(--nav-on, var(--navy)); }
+.bottom-nav a[aria-current="page"] .duo-fill { opacity: .6; }
+:root[data-theme="dark"] { --nav-on: #f2f4f8; }
+/* Campus AI: navy with a gold ring, no rainbow. */
+.ai-fab { background: var(--navy); color: #fff; box-shadow: 0 0 0 2px var(--gold), 0 10px 24px -8px rgb(0 0 0 / .45); }
+.ai-fab svg { width: 25px; height: 25px; }
+.ai-fab .duo-fill, .ai-orb .duo-fill { opacity: 1; }
+.ai-orb { background: var(--navy); color: #fff; box-shadow: 0 0 0 2px var(--gold); animation: none; }
+.ai-orb svg { animation: none; width: 26px; height: 26px; }
+.ai-hero { background: var(--surface); border: 1px solid var(--line); }
+.ask-pill svg { color: var(--navy); }
+.ask-pill .duo-fill { opacity: 1; }
+:root[data-theme="dark"] .ask-pill svg { color: #f2f4f8; }
