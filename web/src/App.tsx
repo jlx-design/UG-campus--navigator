@@ -59,7 +59,7 @@ function useUnreadCount() {
   return n;
 }
 
-const TABS: [string, string, string][] = [['map', 'Map', 'map'], ['schedule', 'Schedule', 'calendar'], ['guide', 'Guide', 'book'], ['updates', 'Updates', 'bell'], ['me', 'Me', 'user']];
+const TABS: [string, string, string][] = [['map', 'Map', 'tMap'], ['schedule', 'Schedule', 'tSchedule'], ['guide', 'Guide', 'tGuide'], ['updates', 'Updates', 'tUpdates'], ['me', 'Me', 'tMe']];
 const TAB_OF: Record<string, string> = {
   '': 'map', map: 'map', follow: 'map', explore: 'map', navigate: 'map', schedule: 'schedule', gpa: 'schedule', details: 'me', guide: 'guide', fresher: 'guide', assistant: 'guide', emergency: 'guide', shuttles: 'guide',
   updates: 'updates', welcome: 'guide', me: 'me', profile: 'me', login: 'me', register: 'me', 'forgot-password': 'me', 'reset-password': 'me', about: 'me', report: 'me', admin: 'me', appearance: 'me',
@@ -117,7 +117,7 @@ function Shell() {
         </nav>
       )}
       {!isMap && top !== 'assistant' && top !== 'welcome' && top !== 'admin' && !['login', 'register', 'forgot-password', 'reset-password'].includes(top) && (
-        <a href="#/assistant" className="ai-fab" aria-label="Ask Campus AI"><Icon name="sparkle" /></a>
+        <a href="#/assistant" className="ai-fab" aria-label="Ask Campus AI"><Icon name="askAi" /></a>
       )}
       {toastMsg && <div key={toastMsg.id} className={`toast glass ${toastMsg.kind}`} role="status">{toastMsg.msg}</div>}
     </div>

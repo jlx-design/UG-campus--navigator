@@ -10,7 +10,7 @@ export const WELCOME_SEEN = K('welcome.seen');
 const markSeen = () => { try { localStorage.setItem(WELCOME_SEEN, '1'); } catch { /* ignore */ } };
 
 const CHOICES: [Audience, string, string, string][] = [
-  ['fresher', 'sparkle', "I'm a fresher", 'Level 100 — new this year'],
+  ['fresher', 'gFirstSteps', "I'm a fresher", 'Level 100 — new this year'],
   ['continuing', 'book', "I'm a continuing student", 'Level 200 and above'],
   ['postgrad', 'school', "I'm a postgraduate", "Master's, MPhil or PhD"],
   ['staff', 'idcard', "I'm staff", 'Lecturer or university staff'],

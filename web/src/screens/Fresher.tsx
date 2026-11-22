@@ -43,7 +43,7 @@ export function FresherHome() {
       <header className="page-head"><h1>Campus Guide</h1><p className="lede">Everything about life at {CAMPUS.campusName} — for students, staff and visitors.</p></header>
       <ForYou />
       <a className="ai-hero" href="#/assistant">
-        <div className="ai-orb"><Icon name="sparkle" /></div>
+        <div className="ai-orb"><Icon name="askAi" /></div>
         <div><b>Ask Campus AI</b><span>“Where is the main library?” · “How do I register?”</span></div>
         <Icon name="chevron" />
       </a>

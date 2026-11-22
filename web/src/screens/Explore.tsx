@@ -103,7 +103,7 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
         <a className="fab fab-sos" href="#/emergency" aria-label="Emergency contacts"><Icon name="sos" /></a>
       </div>
       <InstallBanner />
-      <a className="ask-pill glass" href="#/assistant"><Icon name="sparkle" />{'Ask Campus AI'}</a>
+      <a className="ask-pill glass" href="#/assistant"><Icon name="askAi" />{'Ask Campus AI'}</a>
       {layers && <LayersPanel mapApi={mapApi} onClose={() => setLayers(false)} />}
 
       {sel && sel.id === 'pin' && !layers && (
