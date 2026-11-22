@@ -854,3 +854,12 @@ img.welcome-mark { border-radius: 14px; }
 .mc-sos { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: #c62828; font-weight: 800; font-size: .8rem; letter-spacing: .02em; border: 1.5px solid #e2a3a3; box-shadow: 0 6px 18px -8px rgb(0 0 0 / .3); text-decoration: none; }
 :root[data-theme="dark"] .mc-group button, :root[data-theme="dark"] .mc-solo { color: #f2f4f8; }
 :root[data-theme="dark"] .mc-sos { color: #ff8a80; border-color: #7a3a3a; }
+
+/* Bottom bar docked to the bottom edge, full width, clear of the phone's home indicator. */
+.bottom-nav, :root .bottom-nav {
+  left: 0; right: 0; bottom: 0; transform: none; width: 100%; max-width: none;
+  height: calc(var(--nav-h) + var(--safe-b)); padding: 4px max(8px, calc(50% - 300px)) var(--safe-b);
+  border-radius: 0; border: 0; border-top: 1px solid var(--line);
+  box-shadow: 0 -6px 20px -14px rgb(0 0 0 / .25);
+}
+@media (min-width: 700px) { .bottom-nav { bottom: 0; } }
