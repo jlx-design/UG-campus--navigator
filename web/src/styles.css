@@ -840,3 +840,17 @@ img.welcome-mark { border-radius: 14px; }
 .ask-pill svg { color: var(--navy); }
 .ask-pill .duo-fill { opacity: 1; }
 :root[data-theme="dark"] .ask-pill svg { color: #f2f4f8; }
+
+/* Map side buttons: one white panel for map tools, a round location button, and a plain SOS button. */
+.map-controls { gap: 12px; align-items: flex-end; }
+.mc-group { display: flex; flex-direction: column; border-radius: 14px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 1px 0 rgb(0 0 0 / .04), 0 6px 18px -8px rgb(0 0 0 / .3); }
+.mc-group button, .mc-solo { width: 46px; height: 46px; display: grid; place-items: center; background: none; border: 0; color: var(--navy); cursor: pointer; padding: 0; }
+.mc-group button + button { border-top: 1px solid var(--line); }
+.mc-solo { border-radius: 50%; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 18px -8px rgb(0 0 0 / .3); }
+.mc-group svg, .mc-solo svg { width: 23px; height: 23px; }
+.mc-group button:active, .mc-solo:active, .mc-sos:active { transform: scale(.94); }
+.map-controls .duo-fill { opacity: .45; }
+.mc-solo[aria-pressed="true"] .duo-fill, .mc-group button[aria-pressed="true"] .duo-fill { opacity: 1; }
+.mc-sos { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: #c62828; font-weight: 800; font-size: .8rem; letter-spacing: .02em; border: 1.5px solid #e2a3a3; box-shadow: 0 6px 18px -8px rgb(0 0 0 / .3); text-decoration: none; }
+:root[data-theme="dark"] .mc-group button, :root[data-theme="dark"] .mc-solo { color: #f2f4f8; }
+:root[data-theme="dark"] .mc-sos { color: #ff8a80; border-color: #7a3a3a; }

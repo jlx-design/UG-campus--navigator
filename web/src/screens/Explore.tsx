@@ -94,13 +94,15 @@ export function ExploreOverlay({ mapApi, filter, setFilter }: { mapApi: React.Mu
       </div>
 
       <div className="map-controls">
-        {Math.abs(bearing) > 2 && <button className="fab glass" onClick={() => mapApi.current?.resetNorth()} aria-label="Reset map to north"><Icon name="compass" style={{ transform: `rotate(${-bearing}deg)` }} /></button>}
-        <button className="fab glass" onClick={() => setLayers(v => !v)} aria-label="Map style and layers" aria-pressed={layers}><Icon name="layers" /></button>
-        <button className="fab glass" onClick={locate} aria-label="Show my location" aria-pressed={geo.status === 'ok'}>
-          {locating || geo.status === 'requesting' ? <span className="spinner" /> : <Icon name="locate" />}
+        {Math.abs(bearing) > 2 && <button className="mc-solo" onClick={() => mapApi.current?.resetNorth()} aria-label="Reset map to north"><Icon name="cNorth" style={{ transform: `rotate(${-bearing}deg)` }} /></button>}
+        <div className="mc-group">
+          <button onClick={() => setLayers(v => !v)} aria-label="Map style and layers" aria-pressed={layers}><Icon name="cLayers" /></button>
+          <button onClick={() => mapApi.current?.home()} aria-label="Back to campus"><Icon name="cCampus" /></button>
+        </div>
+        <button className="mc-solo" onClick={locate} aria-label="Show my location" aria-pressed={geo.status === 'ok'}>
+          {locating || geo.status === 'requesting' ? <span className="spinner" /> : <Icon name="cLocate" />}
         </button>
-        <button className="fab glass" onClick={() => mapApi.current?.home()} aria-label="Back to campus"><Icon name="campus" /></button>
-        <a className="fab fab-sos" href="#/emergency" aria-label="Emergency contacts"><Icon name="sos" /></a>
+        <a className="mc-sos" href="#/emergency" aria-label="Emergency contacts">SOS</a>
       </div>
       <InstallBanner />
       <a className="ask-pill glass" href="#/assistant"><Icon name="askAi" />{'Ask Campus AI'}</a>
