@@ -43,7 +43,7 @@
     "gold": "#c8961e",
     "accent": "#1d4ed8",
     "accentName": "Legon Blue",
-    "logoBg": "#284871"
+    "logoBg": "#182c64"
   },
   "api": {
     "dataApiUrl": "https://ep-withered-boat-bhv75jg9.apirest.c-10.eu-central-1.aws.neon.tech/ugnav/rest/v1",

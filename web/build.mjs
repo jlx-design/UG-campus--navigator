@@ -57,11 +57,21 @@ if (existsSync(badgePath)) {
     const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${Math.round(size * radius)}"/></svg>`);
     return sharp(await base.png().toBuffer()).composite([{ input: mask, blend: 'dest-in' }]).png();
   };
-  await (await tile(192, 0.94, 0.22)).toFile(join(dist, 'icons/icon-192.png'));
-  await (await tile(512, 0.94, 0.22)).toFile(join(dist, 'icons/icon-512.png'));
-  await (await tile(512, 0.76, 0)).toFile(join(dist, 'icons/icon-maskable-512.png'));   // badge inside the 80% safe zone
-  await (await tile(180, 0.94, 0)).toFile(join(dist, 'icons/apple-touch-icon.png'));      // iOS rounds the corners itself
-  await (await tile(1024, 0.94, 0.22)).toFile(join(dist, 'icons/logo-1024.png'));
+  // A square, full-bleed design (campus/logos/<id>-full.png, optional <id>-maskable.png) is used as-is for home-screen icons.
+  const fullPath = join(root, `campus/logos/${campus.id}-full.png`), maskPath = join(root, `campus/logos/${campus.id}-maskable.png`);
+  const square = async (file, size, radius) => {
+    const b = await sharp(file).resize(size, size, { kernel: 'lanczos3' }).png().toBuffer();
+    if (!radius) return sharp(b).png();
+    const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${Math.round(size * radius)}"/></svg>`);
+    return sharp(b).composite([{ input: mask, blend: 'dest-in' }]).png();
+  };
+  const hasFull = existsSync(fullPath);
+  const icon = (size, scale, radius) => hasFull ? square(fullPath, size, radius) : tile(size, scale, radius);
+  await (await icon(192, 0.94, 0.22)).toFile(join(dist, 'icons/icon-192.png'));
+  await (await icon(512, 0.94, 0.22)).toFile(join(dist, 'icons/icon-512.png'));
+  await (await (hasFull ? square(existsSync(maskPath) ? maskPath : fullPath, 512, 0) : tile(512, 0.76, 0))).toFile(join(dist, 'icons/icon-maskable-512.png'));   // design inside the 80% safe zone
+  await (await icon(180, 0.94, 0)).toFile(join(dist, 'icons/apple-touch-icon.png'));      // iOS rounds the corners itself
+  await (await icon(1024, 0.94, 0.22)).toFile(join(dist, 'icons/logo-1024.png'));
   await sharp(badgePath).resize(256, 256, { kernel: 'lanczos3' }).png().toFile(join(dist, 'icons/logo.png'));  // in-app badge
   await sharp(badgePath).resize(64, 64, { kernel: 'lanczos3' }).png().toFile(join(dist, 'icons/favicon-64.png'));
 } else {
